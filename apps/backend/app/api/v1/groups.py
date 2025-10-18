@@ -56,6 +56,7 @@ async def get_group(group_id: str, current_user=Depends(get_current_user), db: A
     rows = members_res.all()
     members = [
         {
+            "member_id": gm.id,
             "user_id": gm.user_id,
             "is_admin": gm.is_admin,
             "joined_at": gm.joined_at.isoformat(),
@@ -82,6 +83,36 @@ async def delete_group(group_id: str, current_user=Depends(get_current_user), db
         raise HTTPException(status_code=403, detail="Not allowed to delete group")
     # hard-delete; FKs cascade
     await db.delete(group)
+    await db.commit()
+    return None
+
+
+@router.delete("/{group_id}/members/{member_id}", status_code=204)
+async def delete_member(
+    group_id: str,
+    member_id: int,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    group = await db.get(Group, group_id)
+    if not group:
+        return None
+    gm = await db.get(GroupMember, member_id)
+    if not gm or gm.group_id != group_id:
+        return None
+    # allow creator or admin member to remove
+    is_creator = group.created_by == current_user.id
+    admin_res = await db.execute(
+        select(GroupMember).where(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user.id,
+            GroupMember.is_admin == True,
+        )
+    )
+    is_admin = admin_res.scalars().first() is not None
+    if not (is_creator or is_admin or gm.user_id == current_user.id):
+        raise HTTPException(status_code=403, detail="Not allowed to remove member")
+    await db.delete(gm)
     await db.commit()
     return None
 

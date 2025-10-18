@@ -8,13 +8,14 @@ import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import EditExpenseModal from '../components/EditExpenseModal.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
 import AddMemberModal from '../components/AddMemberModal.jsx'
+import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
 
 function currency(amount, currency) {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) } catch { return amount.toFixed(2) }
 }
 
 export default function GroupDetailPage() {
-  const { accessToken } = useAuth()
+  const { accessToken, user } = useAuth()
   const { groupId } = useParams()
   const [group, setGroup] = useState(null)
   const [expenses, setExpenses] = useState([])
@@ -32,6 +33,7 @@ export default function GroupDetailPage() {
   const [editOpen, setEditOpen] = useState(false)
   const [editId, setEditId] = useState(null)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
+  const [removeMemberOpen, setRemoveMemberOpen] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -46,7 +48,7 @@ export default function GroupDetailPage() {
           setGroup(g)
           setExpenses(ex)
           setBalances(bal)
-          setSplits(g.members.map(m => ({ user_id: m.user_id, share_amount: 0, name: m.name || m.user_id, is_ghost: m.is_ghost })))
+          setSplits(g.members.map(m => ({ user_id: m.user_id, share_amount: 0, name: m.name || m.user_id, is_ghost: m.is_ghost, member_id: m.member_id })))
           setPaidBy(g.members[0]?.user_id || '')
         }
       } catch (e) { if (mounted) setError(e.message) } finally { if (mounted) setLoading(false) }
@@ -62,7 +64,7 @@ export default function GroupDetailPage() {
     if (!group || mode !== 'equal') return
     const n = Math.max(group.members.length, 1)
     const per = n ? +(total / n).toFixed(2) : 0
-    setSplits(group.members.map(m => ({ user_id: m.user_id, name: m.name || m.user_id, share_amount: per, is_ghost: m.is_ghost })))
+    setSplits(group.members.map(m => ({ user_id: m.user_id, name: m.name || m.user_id, share_amount: per, is_ghost: m.is_ghost, member_id: m.member_id })))
   }, [group?.members?.length, total, mode])
 
   function updateSplit(userId, value) {
@@ -104,6 +106,11 @@ export default function GroupDetailPage() {
     await refreshLists()
   }
 
+  async function removeMember(memberId) {
+    await api.del(`/groups/${groupId}/members/${memberId}`, { token: accessToken })
+    await refreshLists()
+  }
+
   async function deleteSelected() {
     const ids = Object.entries(selected).filter(([,v])=>v).map(([k])=>k)
     await Promise.allSettled(ids.map(id => api.del(`/groups/expenses/${id}`, { token: accessToken })))
@@ -120,17 +127,26 @@ export default function GroupDetailPage() {
   if (error) return <div className="text-red-600">{error}</div>
   if (!group) return null
 
+  const memberMenu = [
+    { label: 'Add member', onClick: ()=>setAddMemberOpen(true) },
+    { label: 'Remove member…', destructive: true, onClick: ()=>setRemoveMemberOpen(true) }
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2"><Icon id={group.icon || 'group'} /> {group.name}</h1>
           <div className="text-neutral-600 flex items-center gap-1 mt-1">
-            {group.members.slice(0,6).map(m => (<Avatar key={m.user_id || m.name} name={m.name || m.email} size={22} ghost={m.is_ghost} />))}
+            {group.members.slice(0,6).map(m => (
+              <span key={m.member_id} title={m.is_ghost?'offline':''}>
+                <Avatar name={m.name || m.email} size={22} ghost={m.is_ghost} />
+              </span>
+            ))}
             {group.members.length > 6 && <span className="text-xs text-neutral-500">+{group.members.length-6}</span>}
           </div>
         </div>
-        <KebabMenu items={[{ label: 'Add member', onClick: ()=>setAddMemberOpen(true) }]} />
+        <KebabMenu items={memberMenu} />
       </div>
 
       <section className="grid gap-4 sm:grid-cols-3">
@@ -167,7 +183,7 @@ export default function GroupDetailPage() {
               <div className="text-neutral-600 w-24">Paid by</div>
               <select className="flex-1 border rounded-md px-2 py-1" value={paidBy} onChange={e=>setPaidBy(e.target.value)}>
                 {group.members.map(m => (
-                  <option key={m.user_id || m.name} value={m.user_id || ''}>{m.name || m.user_id}{m.is_ghost?' (offline)':''}</option>
+                  <option key={m.member_id} value={m.user_id || ''}>{m.name || m.user_id}{m.is_ghost?' (offline)':''}</option>
                 ))}
               </select>
             </div>
@@ -181,11 +197,11 @@ export default function GroupDetailPage() {
                 </div>
               </div>
               {splits.map((s) => (
-                <div key={s.user_id || s.name} className="flex items-center gap-2">
+                <div key={s.member_id} className="flex items-center gap-2">
                   <div className="flex-1 text-sm flex items-center gap-1"><Avatar name={s.name} size={18} ghost={s.is_ghost} /> <span>{s.name}</span></div>
                   {mode==='percent' ? (
                     <div className="flex items-center gap-1">
-                      <input className="w-24 border rounded-md px-2 py-1" value={s.share_percentage||''} onChange={e=>setSplits(prev=>prev.map(x=>x.user_id===s.user_id?{...x, share_percentage:Number(e.target.value||0)}:x))} />
+                      <input className="w-24 border rounded-md px-2 py-1" value={s.share_percentage||''} onChange={e=>setSplits(prev=>prev.map(x=>x.member_id===s.member_id?{...x, share_percentage:Number(e.target.value||0)}:x))} />
                       <span className="text-sm text-neutral-600">%</span>
                     </div>
                   ) : (
@@ -216,6 +232,7 @@ export default function GroupDetailPage() {
       <ConfirmDialog open={confirmOpen} onClose={()=>setConfirmOpen(false)} title="Delete selected expenses?" message="This cannot be undone." confirmText="Delete" onConfirm={deleteSelected} />
       <EditExpenseModal open={editOpen} onClose={()=>setEditOpen(false)} expenseId={editId} accessToken={accessToken} currency={group.currency} onUpdated={refreshLists} />
       <AddMemberModal open={addMemberOpen} onClose={()=>setAddMemberOpen(false)} onAdd={addMembers} />
+      <RemoveMemberModal open={removeMemberOpen} onClose={()=>setRemoveMemberOpen(false)} members={group.members} currentUserId={user?.id} onRemove={removeMember} />
     </div>
   )
 }
