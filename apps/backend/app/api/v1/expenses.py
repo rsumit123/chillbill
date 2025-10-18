@@ -23,6 +23,7 @@ class ExpenseCreate(BaseModel):
     note: str | None = None
     date: datetime | None = None
     splits: list[ExpenseSplitIn]
+    paid_by: str | None = None
 
 
 router = APIRouter()
@@ -54,9 +55,23 @@ async def create_expense(group_id: str, payload: ExpenseCreate, current_user=Dep
     if not member.scalars().first():
         raise HTTPException(status_code=403, detail="Not a group member")
 
+    # basic validation
+    if payload.total_amount is None or payload.total_amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+
+    # choose payer; default to current user, ensure is member
+    # paid_by may be None for ghost/non-identified; if not provided, set to current user
+    payer_id = payload.paid_by or current_user.id
+    if payload.paid_by:
+        payer_member = await db.execute(
+            select(GroupMember).where(GroupMember.group_id == group_id, (GroupMember.user_id == payer_id) | (GroupMember.user_id.is_(None)))
+        )
+        if not payer_member.scalars().first():
+            raise HTTPException(status_code=403, detail="Payer must be a group member")
+
     expense = Expense(
         group_id=group_id,
-        created_by=current_user.id,
+        created_by=payer_id,
         total_amount=payload.total_amount,
         currency=payload.currency,
         note=payload.note,
@@ -114,6 +129,14 @@ async def update_expense(expense_id: str, payload: ExpenseCreate, current_user=D
     expense.currency = payload.currency
     expense.note = payload.note
     expense.date = payload.date or expense.date
+    if payload.paid_by:
+        # validate payer belongs to the same group
+        payer_member = await db.execute(
+            select(GroupMember).where(GroupMember.group_id == expense.group_id, GroupMember.user_id == payload.paid_by)
+        )
+        if not payer_member.scalars().first():
+            raise HTTPException(status_code=403, detail="Payer must be a group member")
+        expense.created_by = payload.paid_by
     # replace splits
     await db.execute(
         ExpenseSplit.__table__.delete().where(ExpenseSplit.expense_id == expense_id)
