@@ -44,12 +44,12 @@ export default function GroupsPage() {
         const groupsWithMembers = data.map((g, i) => ({ ...g, ...detailed[i].status==='fulfilled' ? { icon: detailed[i].value.icon, currency: detailed[i].value.currency } : {}, _members: detailed[i].status==='fulfilled' ? detailed[i].value.members : [] }))
         if (mounted) setGroups(groupsWithMembers)
         
-        // Get exchange rates info
-        const rates = getRatesInfo()
-        if (mounted) setRatesInfo(rates)
-        
         // compute dashboard summary in selected display currency
         await computeSummary(data, groupsWithMembers)
+        
+        // Get exchange rates info AFTER computing summary (which fetches rates)
+        const rates = getRatesInfo()
+        if (mounted) setRatesInfo(rates)
       } catch (e) { if (mounted) setError(e.message) }
       finally { if (mounted) setLoading(false) }
     }
@@ -69,7 +69,7 @@ export default function GroupsPage() {
         const bal = r.value.balances || {}
         const mine = Number(bal[user?.id] || 0) // in group currency
         const gcur = groupsWithMembers[i]?.currency || 'INR'
-        // Convert to display currency
+        // Convert to display currency (this will trigger rate fetch if needed)
         const mineConverted = await convert(Math.abs(mine), gcur, displayCurrency)
         if (mine > 0) totalOwed += mineConverted
         if (mine < 0) totalOwes += mineConverted
@@ -77,6 +77,10 @@ export default function GroupsPage() {
       }
     }
     setSummary({ totalOwed, totalOwes, byGroup })
+    
+    // Update rates info after conversion (rates are now fetched)
+    const rates = getRatesInfo()
+    setRatesInfo(rates)
   }
 
   // Recompute summary when display currency changes
