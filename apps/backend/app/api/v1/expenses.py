@@ -23,7 +23,7 @@ class ExpenseCreate(BaseModel):
     note: str | None = None
     date: datetime | None = None
     splits: list[ExpenseSplitIn]
-    paid_by: str | None = ...  # Required field, can be None for ghost members
+    paid_by_member_id: int  # member_id of the payer
 
 
 router = APIRouter()
@@ -60,12 +60,15 @@ async def create_expense(group_id: str, payload: ExpenseCreate, current_user=Dep
     if payload.total_amount is None or payload.total_amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than zero")
 
-    # Use the provided paid_by value directly (can be None for ghost members or explicit user_id)
-    payer_id = payload.paid_by
+    # Verify the payer is a member of this group
+    payer_member = await db.get(GroupMember, payload.paid_by_member_id)
+    if not payer_member or payer_member.group_id != group_id:
+        raise HTTPException(status_code=400, detail="Payer is not a member of this group")
 
     expense = Expense(
         group_id=group_id,
-        created_by=payer_id,
+        created_by=payer_member.user_id,  # Will be None for ghost members
+        paid_by_member_id=payload.paid_by_member_id,
         total_amount=payload.total_amount,
         currency=payload.currency,
         note=payload.note,
@@ -123,14 +126,15 @@ async def update_expense(expense_id: str, payload: ExpenseCreate, current_user=D
     expense.currency = payload.currency
     expense.note = payload.note
     expense.date = payload.date or expense.date
-    if payload.paid_by:
-        # validate payer belongs to the same group
-        payer_member = await db.execute(
-            select(GroupMember).where(GroupMember.group_id == expense.group_id, GroupMember.user_id == payload.paid_by)
-        )
-        if not payer_member.scalars().first():
-            raise HTTPException(status_code=403, detail="Payer must be a group member")
-        expense.created_by = payload.paid_by
+    
+    # Verify the payer is a member of the same group
+    payer_member = await db.get(GroupMember, payload.paid_by_member_id)
+    if not payer_member or payer_member.group_id != expense.group_id:
+        raise HTTPException(status_code=400, detail="Payer is not a member of this group")
+    
+    expense.paid_by_member_id = payload.paid_by_member_id
+    expense.created_by = payer_member.user_id  # Will be None for ghost members
+    
     # replace splits
     await db.execute(
         ExpenseSplit.__table__.delete().where(ExpenseSplit.expense_id == expense_id)

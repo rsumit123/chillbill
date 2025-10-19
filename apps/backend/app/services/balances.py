@@ -18,8 +18,12 @@ async def compute_group_balances(db: AsyncSession, group_id: str) -> dict[str, f
 
     for e in expenses:
         # The payer gets credit for the full amount
-        if e.created_by:
-            balances[e.created_by] += float(e.total_amount)
+        # Use paid_by_member_id to find the payer (works for both registered and ghost members)
+        payer_member = await db.get(GroupMember, e.paid_by_member_id)
+        if payer_member:
+            # Use user_id if available (registered user), otherwise use ghost key
+            payer_key = payer_member.user_id if payer_member.user_id else f"ghost_{payer_member.id}"
+            balances[payer_key] += float(e.total_amount)
         
         # Each split reduces the member's balance
         splits_res = await db.execute(select(ExpenseSplit).where(ExpenseSplit.expense_id == e.id))

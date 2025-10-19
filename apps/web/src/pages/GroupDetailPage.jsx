@@ -70,17 +70,12 @@ export default function GroupDetailPage() {
     const total = Number(amount)
     setSubmitting(true)
     try {
-      // Find the user_id for the selected payer (by member_id)
-      const payerMember = group.members.find(m => m.member_id === paidByMemberId)
-      // For ghost members, user_id is null; for registered users, it's their user_id
-      const payerUserId = payerMember?.user_id ?? null
-      
       const payload = {
         total_amount: total,
         currency: group.currency,
         note: note || null,
         date: new Date().toISOString(),
-        paid_by: payerUserId,
+        paid_by_member_id: paidByMemberId, // Send member_id directly
         splits: mode==='percent'
           ? splits.map(s => ({ member_id: s.member_id, share_amount: +(total * (Number(s.share_percentage||0)/100)).toFixed(2), share_percentage: Number(s.share_percentage||0) }))
           : splits.map(s => ({ member_id: s.member_id, share_amount: Number(s.share_amount||0), share_percentage: null })),
