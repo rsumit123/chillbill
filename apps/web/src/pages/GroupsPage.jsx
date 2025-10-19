@@ -66,18 +66,23 @@ export default function GroupsPage() {
   }, [accessToken])
 
   async function createGroupViaModal({ name, currency, emails, icon }) {
-    const g = await api.post('/groups/', { name, currency, icon }, { token: accessToken })
-    setGroups(prev => [{ ...g, _members: [] }, ...prev])
-    if (emails?.length) {
-      // Detect if each entry is an email or a name
-      const memberPromises = emails.map(entry => {
-        const isEmail = /.+@.+\..+/.test(entry)
-        const payload = isEmail ? { email: entry } : { name: entry }
-        return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
-      })
-      await Promise.allSettled(memberPromises)
-    } else {
-      push('Created a personal group. You can add members later.', 'info')
+    try {
+      const g = await api.post('/groups/', { name, currency, icon }, { token: accessToken })
+      setGroups(prev => [{ ...g, _members: [] }, ...prev])
+      if (emails?.length) {
+        // Detect if each entry is an email or a name
+        const memberPromises = emails.map(entry => {
+          const isEmail = /.+@.+\..+/.test(entry)
+          const payload = isEmail ? { email: entry } : { name: entry }
+          return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
+        })
+        await Promise.allSettled(memberPromises)
+        push('Group created with members successfully', 'success')
+      } else {
+        push('Group created successfully. You can add members later.', 'success')
+      }
+    } catch (err) {
+      push(err.message || 'Failed to create group', 'error')
     }
   }
 
@@ -91,8 +96,12 @@ export default function GroupsPage() {
     try {
       await api.del(`/groups/${deleteTarget.id}`, { token: accessToken })
       setGroups(prev => prev.filter(x => x.id !== deleteTarget.id))
-    } catch (e) { push(e.message || 'Delete failed', 'error') }
-    finally { setDeleteTarget(null) }
+      push('Group deleted successfully', 'success')
+    } catch (e) { 
+      push(e.message || 'Failed to delete group', 'error') 
+    } finally { 
+      setDeleteTarget(null) 
+    }
   }
 
   if (loading) return (

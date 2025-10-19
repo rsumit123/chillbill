@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import Modal from './Modal.jsx'
 import { api } from '../services/api.js'
+import { useToast } from './Toast.jsx'
 
 export default function EditExpenseModal({ open, onClose, expenseId, accessToken, currency, onUpdated }) {
+  const { push } = useToast()
   const [loading, setLoading] = useState(false)
   const [orig, setOrig] = useState(null)
   const [note, setNote] = useState('')
@@ -40,10 +42,12 @@ export default function EditExpenseModal({ open, onClose, expenseId, accessToken
     setLoading(true)
     try {
       await api.put(`/groups/expenses/${expenseId}`, payload, { token: accessToken })
+      push('Expense updated successfully', 'success')
       onUpdated?.()
       onClose?.()
     } catch (err) {
       setError(err.message || 'Failed to save')
+      push(err.message || 'Failed to update expense', 'error')
     } finally { setLoading(false) }
   }
 

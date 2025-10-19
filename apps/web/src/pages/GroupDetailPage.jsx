@@ -10,6 +10,7 @@ import KebabMenu from '../components/KebabMenu.jsx'
 import AddMemberModal from '../components/AddMemberModal.jsx'
 import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
 import { Spinner, ButtonSpinner } from '../components/Spinner.jsx'
+import { useToast } from '../components/Toast.jsx'
 
 function currency(amount, currency) {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) } catch { return amount.toFixed(2) }
@@ -18,6 +19,7 @@ function currency(amount, currency) {
 export default function GroupDetailPage() {
   const { accessToken, user } = useAuth()
   const { groupId } = useParams()
+  const { push } = useToast()
   const [group, setGroup] = useState(null)
   const [expenses, setExpenses] = useState([])
   const [balances, setBalances] = useState(null)
@@ -25,7 +27,7 @@ export default function GroupDetailPage() {
   const [amount, setAmount] = useState('')
   const [splits, setSplits] = useState([])
   const [mode, setMode] = useState('equal') // 'equal' | 'amount' | 'percent'
-  const [paidBy, setPaidBy] = useState('')
+  const [paidByMemberId, setPaidByMemberId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [amountError, setAmountError] = useState('')
@@ -52,8 +54,9 @@ export default function GroupDetailPage() {
           setExpenses(ex)
           setBalances(bal)
           setSplits(g.members.map(m => ({ user_id: m.user_id, share_amount: 0, name: m.name || m.user_id, is_ghost: m.is_ghost, member_id: m.member_id })))
-          // Set paid by to current user by default
-          setPaidBy(user?.id || g.members[0]?.user_id || '')
+          // Set paid by to current user by default (find their member_id)
+          const currentMember = g.members.find(m => m.user_id === user?.id)
+          setPaidByMemberId(currentMember?.member_id || g.members[0]?.member_id || null)
         }
       } catch (e) { if (mounted) setError(e.message) } finally { if (mounted) setLoading(false) }
     }
@@ -91,12 +94,16 @@ export default function GroupDetailPage() {
     setAmountError('')
     setSubmitting(true)
     try {
+      // Find the user_id for the selected payer (by member_id)
+      const payerMember = group.members.find(m => m.member_id === paidByMemberId)
+      const payerUserId = payerMember?.user_id || undefined
+      
       const payload = {
         total_amount: total,
         currency: group.currency,
         note: note || null,
         date: new Date().toISOString(),
-        paid_by: paidBy || undefined,
+        paid_by: payerUserId,
         splits: mode==='percent'
           ? splits.map(s => ({ member_id: s.member_id, share_amount: +(total * (Number(s.share_percentage||0)/100)).toFixed(2), share_percentage: Number(s.share_percentage||0) }))
           : splits.map(s => ({ member_id: s.member_id, share_amount: Number(s.share_amount||0), share_percentage: null })),
@@ -105,19 +112,32 @@ export default function GroupDetailPage() {
       setNote('')
       setAmount('')
       await refreshLists()
+      push('Expense added successfully', 'success')
+    } catch (err) {
+      push(err.message || 'Failed to add expense', 'error')
     } finally {
       setSubmitting(false)
     }
   }
 
   async function addMembers(tokens) {
-    await Promise.allSettled(tokens.map(t => /.+@.+\..+/.test(t) ? api.post(`/groups/${groupId}/members`, { email: t }, { token: accessToken }) : api.post(`/groups/${groupId}/members`, { name: t }, { token: accessToken })))
-    await refreshLists()
+    try {
+      await Promise.allSettled(tokens.map(t => /.+@.+\..+/.test(t) ? api.post(`/groups/${groupId}/members`, { email: t }, { token: accessToken }) : api.post(`/groups/${groupId}/members`, { name: t }, { token: accessToken })))
+      await refreshLists()
+      push(`${tokens.length} member(s) added successfully`, 'success')
+    } catch (err) {
+      push(err.message || 'Failed to add members', 'error')
+    }
   }
 
   async function removeMember(memberId) {
-    await api.del(`/groups/${groupId}/members/${memberId}`, { token: accessToken })
-    await refreshLists()
+    try {
+      await api.del(`/groups/${groupId}/members/${memberId}`, { token: accessToken })
+      await refreshLists()
+      push('Member removed successfully', 'success')
+    } catch (err) {
+      push(err.message || 'Failed to remove member', 'error')
+    }
   }
 
   async function deleteSelected() {
@@ -127,14 +147,22 @@ export default function GroupDetailPage() {
       await Promise.allSettled(ids.map(id => api.del(`/groups/expenses/${id}`, { token: accessToken })))
       setSelected({})
       await refreshLists()
+      push(`${ids.length} expense(s) deleted successfully`, 'success')
+    } catch (err) {
+      push(err.message || 'Failed to delete expenses', 'error')
     } finally {
       setDeleting(false)
     }
   }
 
   async function deleteOne(id) {
-    await api.del(`/groups/expenses/${id}`, { token: accessToken })
-    await refreshLists()
+    try {
+      await api.del(`/groups/expenses/${id}`, { token: accessToken })
+      await refreshLists()
+      push('Expense deleted successfully', 'success')
+    } catch (err) {
+      push(err.message || 'Failed to delete expense', 'error')
+    }
   }
 
   if (loading) return (
@@ -209,10 +237,10 @@ export default function GroupDetailPage() {
             <input className={`w-full border rounded-md px-3 py-2 ${amountError?'border-red-500':''}`} placeholder={`Amount (${group.currency})`} value={amount} onChange={e=>setAmount(e.target.value)} />
             {amountError && <div className="text-xs text-red-600">{amountError}</div>}
             <div className="flex items-center gap-2 text-sm">
-              <div className="text-neutral-600 w-24">Paid by</div>
-              <select className="flex-1 border rounded-md px-2 py-1" value={paidBy} onChange={e=>setPaidBy(e.target.value)}>
+              <div className="text-neutral-600 dark:text-neutral-300 w-24">Paid by</div>
+              <select className="flex-1 border dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-2 py-1" value={paidByMemberId || ''} onChange={e=>setPaidByMemberId(Number(e.target.value))}>
                 {group.members.map(m => (
-                  <option key={m.member_id} value={m.user_id || ''}>{m.name || m.user_id}{m.is_ghost?' (offline)':''}</option>
+                  <option key={m.member_id} value={m.member_id}>{m.name || m.user_id}{m.is_ghost?' (offline)':''}</option>
                 ))}
               </select>
             </div>
