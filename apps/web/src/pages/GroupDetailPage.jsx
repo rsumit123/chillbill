@@ -52,7 +52,8 @@ export default function GroupDetailPage() {
           setExpenses(ex)
           setBalances(bal)
           setSplits(g.members.map(m => ({ user_id: m.user_id, share_amount: 0, name: m.name || m.user_id, is_ghost: m.is_ghost, member_id: m.member_id })))
-          setPaidBy(g.members[0]?.user_id || '')
+          // Set paid by to current user by default
+          setPaidBy(user?.id || g.members[0]?.user_id || '')
         }
       } catch (e) { if (mounted) setError(e.message) } finally { if (mounted) setLoading(false) }
     }
@@ -179,21 +180,26 @@ export default function GroupDetailPage() {
             </button>
           </div>
           <ul className="space-y-2">
-            {expenses.map(e => (
-              <li key={e.id} className="border rounded-lg p-3 bg-white dark:bg-neutral-900 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <input type="checkbox" checked={!!selected[e.id]} onChange={ev=>setSelected(s=>({ ...s, [e.id]: ev.target.checked }))} />
-                  <div>
-                    <div className="font-medium">{e.note || 'Expense'}</div>
-                    <div className="text-sm text-neutral-500">{new Date(e.date).toLocaleString()}</div>
+            {expenses.map(e => {
+              const payer = group.members.find(m => m.user_id === e.created_by);
+              return (
+                <li key={e.id} className="border rounded-lg p-3 bg-white dark:bg-neutral-900 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <input type="checkbox" checked={!!selected[e.id]} onChange={ev=>setSelected(s=>({ ...s, [e.id]: ev.target.checked }))} />
+                    <div>
+                      <div className="font-medium">{e.note || 'Expense'}</div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {new Date(e.date).toLocaleDateString()} • Paid by {payer?.name || 'Unknown'}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="font-semibold">{currency(e.total_amount, e.currency)}</div>
-                  <KebabMenu items={[{ label: 'Edit', onClick: ()=>{ setEditId(e.id); setEditOpen(true) } }, { label: 'Delete', destructive: true, onClick: ()=>deleteOne(e.id) }]} />
-                </div>
-              </li>
-            ))}
+                  <div className="flex items-center gap-3">
+                    <div className="font-semibold">{currency(e.total_amount, e.currency)}</div>
+                    <KebabMenu items={[{ label: 'Edit', onClick: ()=>{ setEditId(e.id); setEditOpen(true) } }, { label: 'Delete', destructive: true, onClick: ()=>deleteOne(e.id) }]} />
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
         <div className="sm:col-span-1 space-y-4">

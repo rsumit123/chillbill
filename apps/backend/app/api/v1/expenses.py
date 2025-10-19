@@ -41,6 +41,7 @@ async def list_expenses(group_id: str, current_user=Depends(get_current_user), d
             "currency": e.currency,
             "note": e.note,
             "date": e.date.isoformat(),
+            "created_by": e.created_by,
         }
         for e in expenses
     ]
