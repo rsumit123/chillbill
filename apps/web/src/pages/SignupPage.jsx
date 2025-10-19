@@ -36,6 +36,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 to-purple-50 dark:from-neutral-900 dark:to-neutral-950 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        {/* Desktop branding */}
         <div className="hidden md:block">
           <div className="text-3xl font-semibold mb-3">Join ChillBill</div>
           <p className="text-neutral-600 dark:text-neutral-300 text-lg">Start sharing expenses in seconds. Invite friends now or later.</p>
@@ -44,6 +45,18 @@ export default function SignupPage() {
             <div className="text-sm text-neutral-600 dark:text-neutral-400">We only use your email for login and invites you initiate.</div>
           </div>
         </div>
+        
+        {/* Mobile branding - shown on small screens */}
+        <div className="md:hidden text-center mb-6">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-rose-500 to-purple-600 mb-4 shadow-lg">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold mb-2">ChillBill</h1>
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm px-4">Create groups. Share bills. Never argue about money again.</p>
+        </div>
+        
         <div className="w-full max-w-md md:ml-auto">
           <div className="rounded-2xl border bg-white/80 dark:bg-neutral-900/80 backdrop-blur p-6 shadow-sm">
             <h1 className="text-xl font-semibold mb-1">Create your account</h1>

@@ -9,6 +9,7 @@ import EditExpenseModal from '../components/EditExpenseModal.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
 import AddMemberModal from '../components/AddMemberModal.jsx'
 import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
+import { Spinner, ButtonSpinner } from '../components/Spinner.jsx'
 
 function currency(amount, currency) {
   try { return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) } catch { return amount.toFixed(2) }
@@ -34,6 +35,8 @@ export default function GroupDetailPage() {
   const [editId, setEditId] = useState(null)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [removeMemberOpen, setRemoveMemberOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -67,9 +70,9 @@ export default function GroupDetailPage() {
     setSplits(group.members.map(m => ({ user_id: m.user_id, name: m.name || m.user_id, share_amount: per, is_ghost: m.is_ghost, member_id: m.member_id })))
   }, [group?.members?.length, total, mode])
 
-  function updateSplit(userId, value) {
+  function updateSplit(memberId, value) {
     const val = Number(value || 0)
-    setSplits(prev => prev.map(s => s.user_id === userId ? { ...s, share_amount: val } : s))
+    setSplits(prev => prev.map(s => s.member_id === memberId ? { ...s, share_amount: val } : s))
   }
 
   async function refreshLists() {
@@ -85,20 +88,25 @@ export default function GroupDetailPage() {
     e.preventDefault()
     if (!total || total <= 0 || Number.isNaN(total)) { setAmountError('Enter an amount greater than 0'); return }
     setAmountError('')
-    const payload = {
-      total_amount: total,
-      currency: group.currency,
-      note: note || null,
-      date: new Date().toISOString(),
-      paid_by: paidBy || undefined,
-      splits: mode==='percent'
-        ? splits.map(s => ({ user_id: s.user_id, share_amount: +(total * (Number(s.share_percentage||0)/100)).toFixed(2), share_percentage: Number(s.share_percentage||0) }))
-        : splits.map(s => ({ user_id: s.user_id, share_amount: Number(s.share_amount||0), share_percentage: null })),
+    setSubmitting(true)
+    try {
+      const payload = {
+        total_amount: total,
+        currency: group.currency,
+        note: note || null,
+        date: new Date().toISOString(),
+        paid_by: paidBy || undefined,
+        splits: mode==='percent'
+          ? splits.map(s => ({ member_id: s.member_id, share_amount: +(total * (Number(s.share_percentage||0)/100)).toFixed(2), share_percentage: Number(s.share_percentage||0) }))
+          : splits.map(s => ({ member_id: s.member_id, share_amount: Number(s.share_amount||0), share_percentage: null })),
+      }
+      await api.post(`/groups/${groupId}/expenses`, payload, { token: accessToken })
+      setNote('')
+      setAmount('')
+      await refreshLists()
+    } finally {
+      setSubmitting(false)
     }
-    await api.post(`/groups/${groupId}/expenses`, payload, { token: accessToken })
-    setNote('')
-    setAmount('')
-    await refreshLists()
   }
 
   async function addMembers(tokens) {
@@ -112,10 +120,15 @@ export default function GroupDetailPage() {
   }
 
   async function deleteSelected() {
-    const ids = Object.entries(selected).filter(([,v])=>v).map(([k])=>k)
-    await Promise.allSettled(ids.map(id => api.del(`/groups/expenses/${id}`, { token: accessToken })))
-    setSelected({})
-    await refreshLists()
+    setDeleting(true)
+    try {
+      const ids = Object.entries(selected).filter(([,v])=>v).map(([k])=>k)
+      await Promise.allSettled(ids.map(id => api.del(`/groups/expenses/${id}`, { token: accessToken })))
+      setSelected({})
+      await refreshLists()
+    } finally {
+      setDeleting(false)
+    }
   }
 
   async function deleteOne(id) {
@@ -123,7 +136,14 @@ export default function GroupDetailPage() {
     await refreshLists()
   }
 
-  if (loading) return <div>Loading...</div>
+  if (loading) return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size="lg" className="text-blue-600" />
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">Loading group...</div>
+      </div>
+    </div>
+  )
   if (error) return <div className="text-red-600">{error}</div>
   if (!group) return null
 
@@ -153,7 +173,10 @@ export default function GroupDetailPage() {
         <div className="sm:col-span-2">
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-medium">Expenses</h2>
-            <button className="text-white bg-red-600 rounded-md px-3 py-1 text-sm disabled:opacity-50" disabled={!Object.values(selected).some(Boolean)} onClick={()=>setConfirmOpen(true)}>Delete selected</button>
+            <button className="text-white bg-red-600 rounded-md px-3 py-1 text-sm disabled:opacity-50 flex items-center gap-2" disabled={!Object.values(selected).some(Boolean) || deleting} onClick={()=>setConfirmOpen(true)}>
+              {deleting && <ButtonSpinner />}
+              {deleting ? 'Deleting...' : 'Delete selected'}
+            </button>
           </div>
           <ul className="space-y-2">
             {expenses.map(e => (
@@ -205,7 +228,7 @@ export default function GroupDetailPage() {
                       <span className="text-sm text-neutral-600">%</span>
                     </div>
                   ) : (
-                    <input className="w-28 border rounded-md px-2 py-1" value={s.share_amount} onChange={e=>updateSplit(s.user_id, e.target.value)} />
+                    <input className="w-28 border rounded-md px-2 py-1" value={s.share_amount} onChange={e=>updateSplit(s.member_id, e.target.value)} />
                   )}
                 </div>
               ))}
@@ -213,7 +236,10 @@ export default function GroupDetailPage() {
                 <div className="text-xs text-neutral-500">Percentages should sum to 100. Amounts will be computed from total.</div>
               )}
             </div>
-            <button className="w-full bg-blue-600 text-white rounded-md py-2">Add</button>
+            <button disabled={submitting} className="w-full bg-blue-600 text-white rounded-md py-2 disabled:opacity-50 flex items-center justify-center gap-2">
+              {submitting && <ButtonSpinner />}
+              {submitting ? 'Adding...' : 'Add expense'}
+            </button>
           </form>
           {balances && (
             <div className="mt-4 border rounded-lg p-3 bg-white">

@@ -9,6 +9,7 @@ import { Icon } from '../components/Icons.jsx'
 import { toINR } from '../services/fx.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
+import { Spinner } from '../components/Spinner.jsx'
 
 export default function GroupsPage() {
   const { accessToken, user } = useAuth()
@@ -94,11 +95,20 @@ export default function GroupsPage() {
     finally { setDeleteTarget(null) }
   }
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-3">
+        <Spinner size="lg" className="text-blue-600" />
+        <div className="text-sm text-neutral-600 dark:text-neutral-400">Loading groups...</div>
+      </div>
+    </div>
+  )
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Your groups</h1>
-        <p className="text-neutral-600">Create groups to track shared expenses.</p>
+        <p className="text-neutral-600 dark:text-neutral-400">Create groups to track shared expenses.</p>
       </div>
       <div className="rounded-lg border bg-white dark:bg-neutral-900 p-3 mb-2 flex items-center justify-between">
         <div className="text-sm text-neutral-700">Dashboard</div>

@@ -12,7 +12,7 @@ from app.db.models.group import GroupMember
 
 
 class ExpenseSplitIn(BaseModel):
-    user_id: str
+    member_id: int
     share_amount: float
     share_percentage: float | None = None
 
@@ -83,7 +83,7 @@ async def create_expense(group_id: str, payload: ExpenseCreate, current_user=Dep
         db.add(
             ExpenseSplit(
                 expense_id=expense.id,
-                user_id=s.user_id,
+                member_id=s.member_id,
                 share_amount=s.share_amount,
                 share_percentage=s.share_percentage,
             )
@@ -101,7 +101,7 @@ async def get_expense(expense_id: str, current_user=Depends(get_current_user), d
     splits_res = await db.execute(select(ExpenseSplit).where(ExpenseSplit.expense_id == expense_id))
     splits = [
         {
-            "user_id": s.user_id,
+            "member_id": s.member_id,
             "share_amount": float(s.share_amount),
             "share_percentage": float(s.share_percentage) if s.share_percentage is not None else None,
         }
@@ -142,7 +142,7 @@ async def update_expense(expense_id: str, payload: ExpenseCreate, current_user=D
         ExpenseSplit.__table__.delete().where(ExpenseSplit.expense_id == expense_id)
     )
     for s in payload.splits:
-        db.add(ExpenseSplit(expense_id=expense_id, user_id=s.user_id, share_amount=s.share_amount, share_percentage=s.share_percentage))
+        db.add(ExpenseSplit(expense_id=expense_id, member_id=s.member_id, share_amount=s.share_amount, share_percentage=s.share_percentage))
     await db.commit()
     return {"id": expense.id}
 

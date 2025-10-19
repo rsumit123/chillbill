@@ -33,6 +33,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-950 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+        {/* Desktop branding */}
         <div className="hidden md:block">
           <div className="text-3xl font-semibold mb-3">ChillBill</div>
           <p className="text-neutral-600 dark:text-neutral-300 text-lg">Split expenses effortlessly. Keep trips, households, and events fair and transparent.</p>
@@ -41,6 +42,18 @@ export default function LoginPage() {
             <div className="text-sm text-neutral-600 dark:text-neutral-400">Use the same account across devices; your data stays synced.</div>
           </div>
         </div>
+        
+        {/* Mobile branding - shown on small screens */}
+        <div className="md:hidden text-center mb-6">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mb-4 shadow-lg">
+            <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold mb-2">ChillBill</h1>
+          <p className="text-neutral-600 dark:text-neutral-400 text-sm px-4">Split expenses. Track balances. Stay chill.</p>
+        </div>
+        
         <div className="w-full max-w-md md:ml-auto">
           <div className="rounded-2xl border bg-white/80 dark:bg-neutral-900/80 backdrop-blur p-6 shadow-sm">
             <h1 className="text-xl font-semibold mb-1">Welcome back</h1>

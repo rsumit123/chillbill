@@ -24,10 +24,10 @@ class Expense(Base):
 
 class ExpenseSplit(Base):
     __tablename__ = "expense_splits"
-    __table_args__ = (UniqueConstraint("expense_id", "user_id", name="uq_expense_user"),)
+    __table_args__ = (UniqueConstraint("expense_id", "member_id", name="uq_expense_member"),)
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     expense_id: Mapped[str] = mapped_column(String(36), ForeignKey("expenses.id", ondelete="CASCADE"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    member_id: Mapped[int] = mapped_column(ForeignKey("group_members.id", ondelete="CASCADE"), nullable=False)
     share_amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     share_percentage: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)

@@ -35,7 +35,7 @@ export default function EditExpenseModal({ open, onClose, expenseId, accessToken
       currency: currency,
       note: note || null,
       date: orig.date,
-      splits: orig.splits.map(s => ({ user_id: s.user_id, share_amount: +(Number(s.share_amount) * ratio).toFixed(2), share_percentage: s.share_percentage ?? null })),
+      splits: orig.splits.map(s => ({ member_id: s.member_id, share_amount: +(Number(s.share_amount) * ratio).toFixed(2), share_percentage: s.share_percentage ?? null })),
     }
     setLoading(true)
     try {
