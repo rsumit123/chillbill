@@ -79,7 +79,15 @@ export default function NewGroupModal({ open, onClose, onCreate }) {
           <div className="space-y-4">
             <div>
               <label className="text-sm text-neutral-700 dark:text-neutral-300">Members (optional)</label>
-              <ChipsInput value={emails} onChange={setEmails} placeholder="Type or paste emails, press Enter" />
+              <ChipsInput value={emails} onChange={setEmails} placeholder="john@example.com, Sarah, Mike…" />
+            </div>
+            <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900 p-3 space-y-1">
+              <div className="text-xs font-medium text-blue-900 dark:text-blue-200">💡 Tip: Mix registered & offline members</div>
+              <div className="text-xs text-blue-700 dark:text-blue-300">
+                • Type <strong>emails</strong> (user@example.com) for registered users<br />
+                • Type <strong>names</strong> (Sarah, Mike) for offline members<br />
+                • Press Enter or comma to add each member
+              </div>
             </div>
             <div className="text-xs text-neutral-500 dark:text-neutral-400">Leave empty to create a personal group; you can invite later.</div>
           </div>

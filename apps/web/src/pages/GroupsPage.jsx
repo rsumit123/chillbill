@@ -68,7 +68,13 @@ export default function GroupsPage() {
     const g = await api.post('/groups/', { name, currency, icon }, { token: accessToken })
     setGroups(prev => [{ ...g, _members: [] }, ...prev])
     if (emails?.length) {
-      await Promise.allSettled(emails.map(e => api.post(`/groups/${g.id}/members`, { email: e }, { token: accessToken })))
+      // Detect if each entry is an email or a name
+      const memberPromises = emails.map(entry => {
+        const isEmail = /.+@.+\..+/.test(entry)
+        const payload = isEmail ? { email: entry } : { name: entry }
+        return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
+      })
+      await Promise.allSettled(memberPromises)
     } else {
       push('Created a personal group. You can add members later.', 'info')
     }
