@@ -6,7 +6,7 @@ import { useToast } from '../components/Toast.jsx'
 import NewGroupModal from '../components/NewGroupModal.jsx'
 import { Avatar, GroupBadge } from '../components/Avatar.jsx'
 import { Icon } from '../components/Icons.jsx'
-import { toINR } from '../services/fx.js'
+import { convert, getRatesInfo } from '../services/fx.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
 import { Spinner } from '../components/Spinner.jsx'
@@ -16,6 +16,9 @@ export default function GroupsPage() {
   const navigate = useNavigate()
   const { push } = useToast()
   const [summary, setSummary] = useState({ totalOwes: 0, totalOwed: 0, byGroup: {} })
+  const [displayCurrency, setDisplayCurrency] = useState('INR')
+  const [ratesInfo, setRatesInfo] = useState(null)
+  const [showRates, setShowRates] = useState(false)
 
   function currency(amount, currencyCode) {
     try { return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode || 'INR' }).format(amount) } catch { return amount.toFixed(2) }
@@ -40,30 +43,49 @@ export default function GroupsPage() {
         )
         const groupsWithMembers = data.map((g, i) => ({ ...g, ...detailed[i].status==='fulfilled' ? { icon: detailed[i].value.icon, currency: detailed[i].value.currency } : {}, _members: detailed[i].status==='fulfilled' ? detailed[i].value.members : [] }))
         if (mounted) setGroups(groupsWithMembers)
-        // compute dashboard summary in INR
-        const balances = await Promise.allSettled(
-          data.map(g => api.get(`/groups/${g.id}/balances`, { token: accessToken }))
-        )
-        const byGroup = {}
-        let totalOwesINR = 0, totalOwedINR = 0
-        for (let i = 0; i < balances.length; i++) {
-          const r = balances[i]
-          if (r.status === 'fulfilled') {
-            const bal = r.value.balances || {}
-            const mine = Number(bal[user?.id] || 0) // in group currency
-            const gcur = groupsWithMembers[i]?.currency || 'INR'
-            const mineINR = await toINR(Math.abs(mine), gcur)
-            if (mine > 0) totalOwedINR += mineINR; if (mine < 0) totalOwesINR += mineINR
-            byGroup[data[i].id] = mine
-          }
-        }
-        if (mounted) setSummary({ totalOwed: totalOwedINR, totalOwes: totalOwesINR, byGroup })
+        
+        // Get exchange rates info
+        const rates = getRatesInfo()
+        if (mounted) setRatesInfo(rates)
+        
+        // compute dashboard summary in selected display currency
+        await computeSummary(data, groupsWithMembers)
       } catch (e) { if (mounted) setError(e.message) }
       finally { if (mounted) setLoading(false) }
     }
     load()
     return () => { mounted = false }
   }, [accessToken])
+
+  async function computeSummary(data, groupsWithMembers) {
+    const balances = await Promise.allSettled(
+      data.map(g => api.get(`/groups/${g.id}/balances`, { token: accessToken }))
+    )
+    const byGroup = {}
+    let totalOwes = 0, totalOwed = 0
+    for (let i = 0; i < balances.length; i++) {
+      const r = balances[i]
+      if (r.status === 'fulfilled') {
+        const bal = r.value.balances || {}
+        const mine = Number(bal[user?.id] || 0) // in group currency
+        const gcur = groupsWithMembers[i]?.currency || 'INR'
+        // Convert to display currency
+        const mineConverted = await convert(Math.abs(mine), gcur, displayCurrency)
+        if (mine > 0) totalOwed += mineConverted
+        if (mine < 0) totalOwes += mineConverted
+        byGroup[data[i].id] = mine
+      }
+    }
+    setSummary({ totalOwed, totalOwes, byGroup })
+  }
+
+  // Recompute summary when display currency changes
+  useEffect(() => {
+    if (groups.length > 0) {
+      const data = groups.map(g => ({ id: g.id, name: g.name }))
+      computeSummary(data, groups)
+    }
+  }, [displayCurrency])
 
   async function createGroupViaModal({ name, currency, emails, icon }) {
     try {
@@ -113,17 +135,98 @@ export default function GroupsPage() {
     </div>
   )
 
+  const popularCurrencies = ['INR', 'USD', 'EUR', 'GBP', 'THB', 'CAD', 'AUD', 'JPY']
+  const currencySymbols = { INR: '₹', USD: '$', EUR: '€', GBP: '£', THB: '฿', CAD: 'C$', AUD: 'A$', JPY: '¥' }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Your groups</h1>
         <p className="text-neutral-600 dark:text-neutral-400">Create groups to track shared expenses.</p>
       </div>
-      <div className="rounded-lg border bg-white dark:bg-neutral-900 p-3 mb-2 flex items-center justify-between">
-        <div className="text-sm text-neutral-700">Dashboard</div>
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-red-700">You owe: ₹{summary.totalOwes.toFixed(2)}</div>
-          <div className="text-green-700">You're owed: ₹{summary.totalOwed.toFixed(2)}</div>
+      
+      {/* Dashboard Summary Card */}
+      <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden">
+        {/* Header with Currency Selector */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Dashboard Summary</div>
+              {ratesInfo && (
+                <button 
+                  onClick={() => setShowRates(!showRates)}
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  title={showRates ? "Hide exchange rates" : "View exchange rates"}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {showRates ? 'Hide Rates' : 'View Rates'}
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-neutral-600 dark:text-neutral-400">Currency:</label>
+              <select 
+                value={displayCurrency} 
+                onChange={(e) => setDisplayCurrency(e.target.value)}
+                className="text-sm border border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-2 py-1 font-medium"
+              >
+                {popularCurrencies.map(curr => (
+                  <option key={curr} value={curr}>{currencySymbols[curr] || curr} {curr}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          
+          {/* Exchange Rates Info */}
+          {showRates && ratesInfo && (
+            <div className="mt-3 p-3 bg-white/60 dark:bg-neutral-900/60 rounded-lg border border-neutral-200 dark:border-neutral-700">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Exchange Rates 
+                  <span className={`ml-2 px-2 py-0.5 rounded text-[10px] ${ratesInfo.isFallback ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
+                    {ratesInfo.isFallback ? 'Static' : 'Live'}
+                  </span>
+                </div>
+                {ratesInfo.lastUpdated && !ratesInfo.isFallback && (
+                  <div className="text-[10px] text-neutral-500 dark:text-neutral-400">
+                    Updated: {new Date(ratesInfo.lastUpdated).toLocaleDateString()}
+                  </div>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                {popularCurrencies.filter(c => c !== displayCurrency).map(curr => {
+                  const rate = ratesInfo.rates[curr] / ratesInfo.rates[displayCurrency]
+                  return (
+                    <div key={curr} className="bg-white dark:bg-neutral-800 rounded px-2 py-1 border border-neutral-200 dark:border-neutral-700">
+                      <span className="text-neutral-500 dark:text-neutral-400">1 {curr} =</span>
+                      <span className="ml-1 font-medium text-neutral-700 dark:text-neutral-300">
+                        {currencySymbols[displayCurrency]}{rate.toFixed(2)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Summary Totals */}
+        <div className="p-4 flex items-center justify-center gap-8">
+          <div className="text-center">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">You owe</div>
+            <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+              {currency(summary.totalOwes, displayCurrency)}
+            </div>
+          </div>
+          <div className="w-px h-12 bg-neutral-200 dark:bg-neutral-700"></div>
+          <div className="text-center">
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mb-1">You're owed</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+              {currency(summary.totalOwed, displayCurrency)}
+            </div>
+          </div>
         </div>
       </div>
       <div className="flex">

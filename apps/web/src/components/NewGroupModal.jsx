@@ -5,6 +5,17 @@ import { Icon } from './Icons.jsx'
 
 const ICONS = ['group','trip','home','event','food','work']
 
+const CURRENCIES = [
+  { code: 'INR', flag: '🇮🇳', symbol: '₹', name: 'Indian Rupee' },
+  { code: 'USD', flag: '🇺🇸', symbol: '$', name: 'US Dollar' },
+  { code: 'EUR', flag: '🇪🇺', symbol: '€', name: 'Euro' },
+  { code: 'GBP', flag: '🇬🇧', symbol: '£', name: 'British Pound' },
+  { code: 'THB', flag: '🇹🇭', symbol: '฿', name: 'Thai Baht' },
+  { code: 'CAD', flag: '🇨🇦', symbol: 'C$', name: 'Canadian Dollar' },
+  { code: 'AUD', flag: '🇦🇺', symbol: 'A$', name: 'Australian Dollar' },
+  { code: 'JPY', flag: '🇯🇵', symbol: '¥', name: 'Japanese Yen' },
+]
+
 export default function NewGroupModal({ open, onClose, onCreate }) {
   const [step, setStep] = useState(1)
   const [name, setName] = useState('')
@@ -12,6 +23,7 @@ export default function NewGroupModal({ open, onClose, onCreate }) {
   const [emails, setEmails] = useState([])
   const [loading, setLoading] = useState(false)
   const [icon, setIcon] = useState('group')
+  const [showAllCurrencies, setShowAllCurrencies] = useState(false)
 
   function reset() {
     setStep(1); setName(''); setCurrency('INR'); setEmails([]); setLoading(false)
@@ -31,41 +43,91 @@ export default function NewGroupModal({ open, onClose, onCreate }) {
         </div>
 
         {step === 1 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
-              <label className="text-sm text-neutral-700 dark:text-neutral-300">Group name</label>
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Group name</label>
               <input 
-                className="mt-1 w-full border dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-3 py-2" 
+                className="w-full border dark:border-neutral-700 dark:bg-neutral-800 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
                 placeholder="Trip to Goa, Flatmates…" 
                 value={name} 
                 onChange={e=>setName(e.target.value)} 
                 autoFocus 
               />
             </div>
+            
             <div>
-              <label className="text-sm text-neutral-700 dark:text-neutral-300">Currency</label>
-              <div className="mt-1 inline-flex rounded-md border dark:border-neutral-700 overflow-hidden">
-                {['INR','USD','EUR'].map(c => (
-                  <button 
-                    type="button" 
-                    key={c} 
-                    className={`px-3 py-2 text-sm ${currency===c?'bg-blue-600 text-white':'bg-white dark:bg-neutral-800'}`} 
-                    onClick={()=>setCurrency(c)}
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Currency</label>
+              <div className="space-y-2">
+                {/* Popular currencies */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {CURRENCIES.slice(0, 4).map(curr => (
+                    <button 
+                      type="button" 
+                      key={curr.code} 
+                      className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        currency===curr.code
+                          ? 'bg-blue-600 text-white border-blue-600' 
+                          : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600'
+                      }`} 
+                      onClick={()=>setCurrency(curr.code)}
+                    >
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="text-base">{curr.flag}</span>
+                        <span>{curr.code}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Show more button */}
+                {!showAllCurrencies && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllCurrencies(true)}
+                    className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    {c}
+                    + Show more currencies
                   </button>
-                ))}
+                )}
+                
+                {/* All currencies */}
+                {showAllCurrencies && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t dark:border-neutral-700">
+                    {CURRENCIES.slice(4).map(curr => (
+                      <button 
+                        type="button" 
+                        key={curr.code} 
+                        className={`px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          currency===curr.code
+                            ? 'bg-blue-600 text-white border-blue-600' 
+                            : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600'
+                        }`} 
+                        onClick={()=>setCurrency(curr.code)}
+                      >
+                        <div className="flex items-center justify-center gap-1.5">
+                          <span className="text-base">{curr.flag}</span>
+                          <span>{curr.code}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+            
             <div>
-              <label className="text-sm text-neutral-700 dark:text-neutral-300">Icon</label>
-              <div className="mt-1 flex gap-2 flex-wrap">
+              <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Icon</label>
+              <div className="flex gap-2 flex-wrap">
                 {ICONS.map(ic => (
                   <button 
                     key={ic} 
                     type="button" 
                     onClick={()=>setIcon(ic)} 
-                    className={`px-2 py-2 rounded-md border dark:border-neutral-700 text-sm flex items-center justify-center w-10 h-10 ${icon===ic?'bg-blue-600 text-white':'bg-white dark:bg-neutral-800'}`}
+                    className={`p-2.5 rounded-lg border transition-colors ${
+                      icon===ic
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : 'bg-white dark:bg-neutral-800 border-neutral-300 dark:border-neutral-700 hover:border-blue-400 dark:hover:border-blue-600'
+                    }`}
                   >
                     <Icon id={ic} />
                   </button>
