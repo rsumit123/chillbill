@@ -96,7 +96,8 @@ export default function GroupDetailPage() {
     try {
       // Find the user_id for the selected payer (by member_id)
       const payerMember = group.members.find(m => m.member_id === paidByMemberId)
-      const payerUserId = payerMember?.user_id || undefined
+      // For ghost members, user_id is null; for registered users, it's their user_id
+      const payerUserId = payerMember?.user_id ?? null
       
       const payload = {
         total_amount: total,
@@ -233,7 +234,7 @@ export default function GroupDetailPage() {
         <div className="sm:col-span-1 space-y-4">
           <h2 className="font-medium mb-2">Add expense</h2>
           <form onSubmit={addExpense} className="space-y-2 border rounded-lg p-3 bg-white dark:bg-neutral-900">
-            <input className="w-full border rounded-md px-3 py-2" placeholder="Note (optional)" value={note} onChange={e=>setNote(e.target.value)} />
+            <input className="w-full border dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-3 py-2" placeholder="Expense name" value={note} onChange={e=>setNote(e.target.value)} />
             <input className={`w-full border rounded-md px-3 py-2 ${amountError?'border-red-500':''}`} placeholder={`Amount (${group.currency})`} value={amount} onChange={e=>setAmount(e.target.value)} />
             {amountError && <div className="text-xs text-red-600">{amountError}</div>}
             <div className="flex items-center gap-2 text-sm">

@@ -23,7 +23,7 @@ class ExpenseCreate(BaseModel):
     note: str | None = None
     date: datetime | None = None
     splits: list[ExpenseSplitIn]
-    paid_by: str | None = None
+    paid_by: str | None = ...  # Required field, can be None for ghost members
 
 
 router = APIRouter()
@@ -60,15 +60,8 @@ async def create_expense(group_id: str, payload: ExpenseCreate, current_user=Dep
     if payload.total_amount is None or payload.total_amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than zero")
 
-    # choose payer; default to current user, ensure is member
-    # paid_by may be None for ghost/non-identified; if not provided, set to current user
-    payer_id = payload.paid_by or current_user.id
-    if payload.paid_by:
-        payer_member = await db.execute(
-            select(GroupMember).where(GroupMember.group_id == group_id, (GroupMember.user_id == payer_id) | (GroupMember.user_id.is_(None)))
-        )
-        if not payer_member.scalars().first():
-            raise HTTPException(status_code=403, detail="Payer must be a group member")
+    # Use the provided paid_by value directly (can be None for ghost members or explicit user_id)
+    payer_id = payload.paid_by
 
     expense = Expense(
         group_id=group_id,
