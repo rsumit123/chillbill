@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { api } from '../services/api.js'
@@ -9,6 +9,7 @@ import EditExpenseModal from '../components/EditExpenseModal.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
 import AddMemberModal from '../components/AddMemberModal.jsx'
 import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
+import AddExpenseModal from '../components/AddExpenseModal.jsx'
 import { Spinner, ButtonSpinner } from '../components/Spinner.jsx'
 import { useToast } from '../components/Toast.jsx'
 
@@ -23,20 +24,15 @@ export default function GroupDetailPage() {
   const [group, setGroup] = useState(null)
   const [expenses, setExpenses] = useState([])
   const [balances, setBalances] = useState(null)
-  const [note, setNote] = useState('')
-  const [amount, setAmount] = useState('')
-  const [splits, setSplits] = useState([])
-  const [mode, setMode] = useState('equal') // 'equal' | 'amount' | 'percent'
-  const [paidByMemberId, setPaidByMemberId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [amountError, setAmountError] = useState('')
   const [selected, setSelected] = useState({})
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editId, setEditId] = useState(null)
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [removeMemberOpen, setRemoveMemberOpen] = useState(false)
+  const [addExpenseOpen, setAddExpenseOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -64,20 +60,6 @@ export default function GroupDetailPage() {
     return () => { mounted = false }
   }, [groupId, accessToken])
 
-  const total = useMemo(() => Number(amount || 0), [amount])
-
-  // When amount or members change in equal mode, auto distribute
-  useEffect(() => {
-    if (!group || mode !== 'equal') return
-    const n = Math.max(group.members.length, 1)
-    const per = n ? +(total / n).toFixed(2) : 0
-    setSplits(group.members.map(m => ({ user_id: m.user_id, name: m.name || m.user_id, share_amount: per, is_ghost: m.is_ghost, member_id: m.member_id })))
-  }, [group?.members?.length, total, mode])
-
-  function updateSplit(memberId, value) {
-    const val = Number(value || 0)
-    setSplits(prev => prev.map(s => s.member_id === memberId ? { ...s, share_amount: val } : s))
-  }
 
   async function refreshLists() {
     const ex = await api.get(`/groups/${groupId}/expenses`, { token: accessToken })
@@ -88,10 +70,8 @@ export default function GroupDetailPage() {
     setGroup(g)
   }
 
-  async function addExpense(e) {
-    e.preventDefault()
-    if (!total || total <= 0 || Number.isNaN(total)) { setAmountError('Enter an amount greater than 0'); return }
-    setAmountError('')
+  async function addExpense({ note, amount, paidByMemberId, splits, mode }) {
+    const total = Number(amount)
     setSubmitting(true)
     try {
       // Find the user_id for the selected payer (by member_id)
@@ -110,9 +90,8 @@ export default function GroupDetailPage() {
           : splits.map(s => ({ member_id: s.member_id, share_amount: Number(s.share_amount||0), share_percentage: null })),
       }
       await api.post(`/groups/${groupId}/expenses`, payload, { token: accessToken })
-      setNote('')
-      setAmount('')
       await refreshLists()
+      setAddExpenseOpen(false)
       push('Expense added successfully', 'success')
     } catch (err) {
       push(err.message || 'Failed to add expense', 'error')
@@ -183,126 +162,132 @@ export default function GroupDetailPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-2"><Icon id={group.icon || 'group'} /> {group.name}</h1>
-          <div className="text-neutral-600 flex items-center gap-1 mt-1">
+          <div className="text-neutral-600 dark:text-neutral-400 flex items-center gap-1 mt-1">
             {group.members.slice(0,6).map(m => (
               <span key={m.member_id} title={m.is_ghost?'offline':''}>
                 <Avatar name={m.name || m.email} size={22} ghost={m.is_ghost} />
               </span>
             ))}
-            {group.members.length > 6 && <span className="text-xs text-neutral-500">+{group.members.length-6}</span>}
+            {group.members.length > 6 && <span className="text-xs text-neutral-500 dark:text-neutral-400">+{group.members.length-6}</span>}
           </div>
         </div>
         <KebabMenu items={memberMenu} />
       </div>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-medium">Expenses</h2>
-            <button className="text-white bg-red-600 rounded-md px-3 py-1 text-sm disabled:opacity-50 flex items-center gap-2" disabled={!Object.values(selected).some(Boolean) || deleting} onClick={()=>setConfirmOpen(true)}>
-              {deleting && <ButtonSpinner />}
-              {deleting ? 'Deleting...' : 'Delete selected'}
-            </button>
+      {/* Balances Section - Enhanced Design */}
+      {balances && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-900 rounded-xl p-4">
+          <h2 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">Group Balances</h2>
+          <div className="grid gap-2">
+            {Object.entries(balances.balances).map(([key, bal]) => {
+              let member;
+              if (key.startsWith('ghost_')) {
+                const memberId = parseInt(key.replace('ghost_', ''));
+                member = group.members.find(m => m.member_id === memberId);
+              } else {
+                member = group.members.find(m => m.user_id === key);
+              }
+              const name = member?.name || key;
+              const isPositive = bal > 0;
+              const isNegative = bal < 0;
+              return (
+                <div key={key} className="flex items-center justify-between bg-white/60 dark:bg-neutral-800/60 backdrop-blur rounded-lg px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar name={name} size={24} ghost={member?.is_ghost} />
+                    <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{name}</span>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-sm font-semibold ${isPositive?'text-green-700 dark:text-green-400':isNegative?'text-red-700 dark:text-red-400':'text-neutral-700 dark:text-neutral-300'}`}>
+                      {currency(Math.abs(bal), group.currency)}
+                    </div>
+                    <div className="text-xs text-neutral-500 dark:text-neutral-400">{isPositive?'is owed':isNegative?'owes':'settled'}</div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
+      )}
+
+      {/* Expenses Section */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-lg">Expenses</h2>
+          <button 
+            className="text-white bg-red-600 rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all hover:bg-red-700" 
+            disabled={!Object.values(selected).some(Boolean) || deleting} 
+            onClick={()=>setConfirmOpen(true)}
+          >
+            {deleting && <ButtonSpinner />}
+            {deleting ? 'Deleting...' : 'Delete selected'}
+          </button>
+        </div>
+        
+        {expenses.length === 0 ? (
+          <div className="text-center py-12 border border-dashed rounded-xl border-neutral-300 dark:border-neutral-700">
+            <div className="text-4xl mb-3">💸</div>
+            <div className="text-neutral-600 dark:text-neutral-400 text-sm">No expenses yet</div>
+            <div className="text-neutral-500 dark:text-neutral-500 text-xs mt-1">Click the + button below to add one</div>
+          </div>
+        ) : (
           <ul className="space-y-2">
             {expenses.map(e => {
               const payer = group.members.find(m => m.user_id === e.created_by);
               return (
-                <li key={e.id} className="border rounded-lg p-3 bg-white dark:bg-neutral-900 flex items-center justify-between gap-3">
+                <li key={e.id} className="border dark:border-neutral-700 rounded-xl p-4 bg-white dark:bg-neutral-900 flex items-center justify-between gap-3 hover:shadow-md transition-shadow">
                   <div className="flex items-center gap-3">
-                    <input type="checkbox" checked={!!selected[e.id]} onChange={ev=>setSelected(s=>({ ...s, [e.id]: ev.target.checked }))} />
+                    <input 
+                      type="checkbox" 
+                      checked={!!selected[e.id]} 
+                      onChange={ev=>setSelected(s=>({ ...s, [e.id]: ev.target.checked }))} 
+                      className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600"
+                    />
                     <div>
-                      <div className="font-medium">{e.note || 'Expense'}</div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400">
-                        {new Date(e.date).toLocaleDateString()} • Paid by {payer?.name || 'Unknown'}
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{e.note || 'Expense'}</div>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-2 mt-0.5">
+                        <span>{new Date(e.date).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Avatar name={payer?.name || 'Unknown'} size={14} ghost={payer?.is_ghost} />
+                          {payer?.name || 'Unknown'}
+                        </span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="font-semibold">{currency(e.total_amount, e.currency)}</div>
-                    <KebabMenu items={[{ label: 'Edit', onClick: ()=>{ setEditId(e.id); setEditOpen(true) } }, { label: 'Delete', destructive: true, onClick: ()=>deleteOne(e.id) }]} />
+                    <div className="font-semibold text-neutral-900 dark:text-neutral-100">{currency(e.total_amount, e.currency)}</div>
+                    <KebabMenu items={[
+                      { label: 'Edit', onClick: ()=>{ setEditId(e.id); setEditOpen(true) } }, 
+                      { label: 'Delete', destructive: true, onClick: ()=>deleteOne(e.id) }
+                    ]} />
                   </div>
                 </li>
               );
             })}
           </ul>
-        </div>
-        <div className="sm:col-span-1 space-y-4">
-          <h2 className="font-medium mb-2">Add expense</h2>
-          <form onSubmit={addExpense} className="space-y-2 border rounded-lg p-3 bg-white dark:bg-neutral-900">
-            <input className="w-full border dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-3 py-2" placeholder="Expense name" value={note} onChange={e=>setNote(e.target.value)} />
-            <input className={`w-full border rounded-md px-3 py-2 ${amountError?'border-red-500':''}`} placeholder={`Amount (${group.currency})`} value={amount} onChange={e=>setAmount(e.target.value)} />
-            {amountError && <div className="text-xs text-red-600">{amountError}</div>}
-            <div className="flex items-center gap-2 text-sm">
-              <div className="text-neutral-600 dark:text-neutral-300 w-24">Paid by</div>
-              <select className="flex-1 border dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-2 py-1" value={paidByMemberId || ''} onChange={e=>setPaidByMemberId(Number(e.target.value))}>
-                {group.members.map(m => (
-                  <option key={m.member_id} value={m.member_id}>{m.name || m.user_id}{m.is_ghost?' (offline)':''}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-neutral-600">Splits</div>
-                <div className="inline-flex rounded-md border overflow-hidden text-sm">
-                  <button type="button" onClick={()=>setMode('equal')} className={mode==='equal'?"bg-neutral-900 text-white px-2 py-1":"px-2 py-1"}>Equal</button>
-                  <button type="button" onClick={()=>setMode('amount')} className={mode==='amount'?"bg-neutral-900 text-white px-2 py-1":"px-2 py-1"}>Amount</button>
-                  <button type="button" onClick={()=>setMode('percent')} className={mode==='percent'?"bg-neutral-900 text-white px-2 py-1":"px-2 py-1"}>Percent</button>
-                </div>
-              </div>
-              {splits.map((s) => (
-                <div key={s.member_id} className="flex items-center gap-2">
-                  <div className="flex-1 text-sm flex items-center gap-1"><Avatar name={s.name} size={18} ghost={s.is_ghost} /> <span>{s.name}</span></div>
-                  {mode==='percent' ? (
-                    <div className="flex items-center gap-1">
-                      <input className="w-24 border rounded-md px-2 py-1" value={s.share_percentage||''} onChange={e=>setSplits(prev=>prev.map(x=>x.member_id===s.member_id?{...x, share_percentage:Number(e.target.value||0)}:x))} />
-                      <span className="text-sm text-neutral-600">%</span>
-                    </div>
-                  ) : (
-                    <input className="w-28 border rounded-md px-2 py-1" value={s.share_amount} onChange={e=>updateSplit(s.member_id, e.target.value)} />
-                  )}
-                </div>
-              ))}
-              {mode==='percent' && (
-                <div className="text-xs text-neutral-500">Percentages should sum to 100. Amounts will be computed from total.</div>
-              )}
-            </div>
-            <button disabled={submitting} className="w-full bg-blue-600 text-white rounded-md py-2 disabled:opacity-50 flex items-center justify-center gap-2">
-              {submitting && <ButtonSpinner />}
-              {submitting ? 'Adding...' : 'Add expense'}
-            </button>
-          </form>
-          {balances && (
-            <div className="mt-4 border rounded-lg p-3 bg-white dark:bg-neutral-900">
-              <div className="font-medium mb-1">Balances</div>
-              <ul className="text-sm space-y-1">
-                {Object.entries(balances.balances).map(([key, bal]) => {
-                  // key is either user_id or "ghost_<member_id>"
-                  let member;
-                  if (key.startsWith('ghost_')) {
-                    const memberId = parseInt(key.replace('ghost_', ''));
-                    member = group.members.find(m => m.member_id === memberId);
-                  } else {
-                    member = group.members.find(m => m.user_id === key);
-                  }
-                  const name = member?.name || key;
-                  return (
-                    <li key={key} className={bal>0?"text-green-700 dark:text-green-400":bal<0?"text-red-700 dark:text-red-400":"text-neutral-700 dark:text-neutral-300"}>
-                      {name}{member?.is_ghost ? ' (offline)' : ''}: {currency(Math.abs(bal), group.currency)} {bal>0?"(owed)":bal<0?"(owes)":""}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </div>
+        )}
       </section>
+
+      {/* Floating Action Button (FAB) */}
+      <button
+        onClick={() => setAddExpenseOpen(true)}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center z-40 group"
+        aria-label="Add expense"
+      >
+        <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
+
+      {/* Modals */}
       <ConfirmDialog open={confirmOpen} onClose={()=>setConfirmOpen(false)} title="Delete selected expenses?" message="This cannot be undone." confirmText="Delete" onConfirm={deleteSelected} />
       <EditExpenseModal open={editOpen} onClose={()=>setEditOpen(false)} expenseId={editId} accessToken={accessToken} currency={group.currency} onUpdated={refreshLists} />
+      <AddExpenseModal open={addExpenseOpen} onClose={()=>setAddExpenseOpen(false)} group={group} user={user} onSubmit={addExpense} submitting={submitting} />
       <AddMemberModal open={addMemberOpen} onClose={()=>setAddMemberOpen(false)} onAdd={addMembers} />
       <RemoveMemberModal open={removeMemberOpen} onClose={()=>setRemoveMemberOpen(false)} members={group.members} currentUserId={user?.id} onRemove={removeMember} />
     </div>
