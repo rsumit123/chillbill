@@ -162,4 +162,39 @@ You should see `Access-Control-Allow-Origin: https://chillbill.skdev.one` and `A
 - Current setup uses SQLite and local uploads under `/data` (mounted to `/srv/chillbill-data`). This is great for a single instance
 - To scale across instances: switch to Postgres (e.g., managed DB) and store uploads in object storage (e.g., S3/GCS), then run multiple backend replicas behind the proxy
 
+### 6) Updating / Refreshing the backend
+
+Most changes can be applied with a restart; rebuild only if dependencies or Dockerfile changed.
+
+- Pull latest code and restart (code-only changes):
+
+```bash
+cd ~/chillbill
+git pull
+docker compose -f docker-compose.yml -f docker-compose.override.yml restart backend
+```
+
+- Rebuild image (when `requirements*.txt`/Dockerfile changed):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --build backend
+```
+
+- Apply env var changes (edit `docker-compose.override.yml` or your env file):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.override.yml up -d backend
+```
+
+- Verify and logs:
+
+```bash
+docker compose ps backend
+docker compose logs --tail=200 backend
+curl -i http://127.0.0.1:8001/healthz
+curl -i https://chillbill-api.skdev.one/healthz
+```
+
+- Migrations: the container runs `alembic upgrade head` on start. Restarting the container applies any new migrations.
+
 

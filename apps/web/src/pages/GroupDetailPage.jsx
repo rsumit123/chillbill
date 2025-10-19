@@ -242,14 +242,25 @@ export default function GroupDetailPage() {
             </button>
           </form>
           {balances && (
-            <div className="mt-4 border rounded-lg p-3 bg-white">
+            <div className="mt-4 border rounded-lg p-3 bg-white dark:bg-neutral-900">
               <div className="font-medium mb-1">Balances</div>
               <ul className="text-sm space-y-1">
-                {Object.entries(balances.balances).map(([uid, bal]) => (
-                  <li key={uid} className={bal>0?"text-green-700":bal<0?"text-red-700":"text-neutral-700"}>
-                    {(group.members.find(m=>m.user_id===uid)?.name) || uid}: {currency(Math.abs(bal), group.currency)} {bal>0?"(owed)":bal<0?"(owes)":""}
-                  </li>
-                ))}
+                {Object.entries(balances.balances).map(([key, bal]) => {
+                  // key is either user_id or "ghost_<member_id>"
+                  let member;
+                  if (key.startsWith('ghost_')) {
+                    const memberId = parseInt(key.replace('ghost_', ''));
+                    member = group.members.find(m => m.member_id === memberId);
+                  } else {
+                    member = group.members.find(m => m.user_id === key);
+                  }
+                  const name = member?.name || key;
+                  return (
+                    <li key={key} className={bal>0?"text-green-700 dark:text-green-400":bal<0?"text-red-700 dark:text-red-400":"text-neutral-700 dark:text-neutral-300"}>
+                      {name}{member?.is_ghost ? ' (offline)' : ''}: {currency(Math.abs(bal), group.currency)} {bal>0?"(owed)":bal<0?"(owes)":""}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
