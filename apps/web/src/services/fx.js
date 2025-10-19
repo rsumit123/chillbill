@@ -14,6 +14,7 @@ async function fetchRates() {
     // Try custom URL first (if user configures their own)
     const customUrl = import.meta.env.VITE_FX_RATES_URL
     if (customUrl) {
+      console.log('[FX] Trying custom URL:', customUrl)
       const res = await fetch(customUrl)
       if (res.ok) {
         const data = await res.json()
@@ -24,6 +25,7 @@ async function fetchRates() {
             rates: data.rates,
             lastUpdated: data.time_last_update_utc || new Date().toISOString()
           }
+          console.log('[FX] ✓ Loaded rates from custom URL')
           return cached.rates
         }
       }
@@ -31,8 +33,12 @@ async function fetchRates() {
 
     // Fallback to exchangerate-api.com (free, no API key needed for basic usage)
     // Gets rates with USD as base
+    console.log('[FX] Fetching live rates from exchangerate-api.com...')
     const res = await fetch('https://open.er-api.com/v6/latest/USD')
-    if (!res.ok) return cached.rates
+    if (!res.ok) {
+      console.warn('[FX] API request failed:', res.status)
+      return cached.rates
+    }
     
     const data = await res.json()
     if (data && data.rates) {
@@ -57,9 +63,10 @@ async function fetchRates() {
         rates: inrBasedRates,
         lastUpdated: data.time_last_update_utc || new Date().toISOString()
       }
+      console.log('[FX] ✓ Live rates loaded successfully. Updated:', cached.lastUpdated)
     }
   } catch (err) {
-    console.warn('Failed to fetch exchange rates, using cached/fallback', err)
+    console.warn('[FX] Failed to fetch exchange rates, using cached/fallback:', err.message)
   }
   return cached.rates
 }
@@ -78,6 +85,12 @@ export function getRatesInfo() {
     lastUpdated: cached.lastUpdated,
     isFallback: cached.at === 0
   }
+}
+
+export async function forceRefreshRates() {
+  console.log('[FX] Force refreshing rates...')
+  cached.at = 0 // Reset cache timestamp
+  return await getRates()
 }
 
 export async function convert(amount, from = 'INR', to = 'INR') {

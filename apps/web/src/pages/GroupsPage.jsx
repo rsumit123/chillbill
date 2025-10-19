@@ -148,32 +148,39 @@ export default function GroupsPage() {
       {/* Dashboard Summary Card */}
       <div className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 overflow-hidden">
         {/* Header with Currency Selector */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Dashboard Summary</div>
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 p-3 sm:p-4 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            {/* Title and Info Button */}
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              <div className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                <span className="hidden sm:inline">Dashboard Summary</span>
+                <span className="sm:hidden">Summary</span>
+              </div>
               {ratesInfo && (
                 <button 
                   onClick={() => setShowRates(!showRates)}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 whitespace-nowrap"
                   title={showRates ? "Hide exchange rates" : "View exchange rates"}
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {showRates ? 'Hide Rates' : 'View Rates'}
+                  <span className="hidden sm:inline">{showRates ? 'Hide Rates' : 'View Rates'}</span>
+                  <span className="sm:hidden">{showRates ? 'Hide' : 'Rates'}</span>
                 </button>
               )}
             </div>
+            
+            {/* Currency Selector */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-neutral-600 dark:text-neutral-400">Currency:</label>
+              <label className="text-xs text-neutral-600 dark:text-neutral-400 hidden sm:inline">Currency:</label>
               <select 
                 value={displayCurrency} 
                 onChange={(e) => setDisplayCurrency(e.target.value)}
-                className="text-sm border border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-2 py-1 font-medium"
+                className="text-sm border border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 rounded-md px-2 py-1.5 font-medium w-full sm:w-auto"
               >
                 {popularCurrencies.map(curr => (
-                  <option key={curr} value={curr}>{currencySymbols[curr] || curr} {curr}</option>
+                  <option key={curr} value={curr}>{currencySymbols[curr]} {curr}</option>
                 ))}
               </select>
             </div>
