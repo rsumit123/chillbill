@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     db_url: str = os.getenv("DB_URL", "sqlite+aiosqlite:///./chillbill.db")
     jwt_secret: str = os.getenv("JWT_SECRET", "devsecret")
     jwt_algo: str = os.getenv("JWT_ALGO", "HS256")
-    access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+    access_token_expire_minutes: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))  # 2 hours
     refresh_token_expire_minutes: int = int(os.getenv("REFRESH_TOKEN_EXPIRE_MINUTES", "43200"))
     backend_cors_origins: List[str] = (
         os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173").split(",")

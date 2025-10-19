@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useTheme } from '../contexts/ThemeContext.jsx'
 import { Avatar } from './Avatar.jsx'
+import SessionExpiredModal from './SessionExpiredModal.jsx'
 
 export default function Layout() {
   const { user, logout } = useAuth()
@@ -88,6 +89,9 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      
+      {/* Session Expired Modal */}
+      <SessionExpiredModal />
     </div>
   )
 }
