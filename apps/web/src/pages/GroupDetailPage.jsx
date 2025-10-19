@@ -49,10 +49,6 @@ export default function GroupDetailPage() {
           setGroup(g)
           setExpenses(ex)
           setBalances(bal)
-          setSplits(g.members.map(m => ({ user_id: m.user_id, share_amount: 0, name: m.name || m.user_id, is_ghost: m.is_ghost, member_id: m.member_id })))
-          // Set paid by to current user by default (find their member_id)
-          const currentMember = g.members.find(m => m.user_id === user?.id)
-          setPaidByMemberId(currentMember?.member_id || g.members[0]?.member_id || null)
         }
       } catch (e) { if (mounted) setError(e.message) } finally { if (mounted) setLoading(false) }
     }

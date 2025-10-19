@@ -13,10 +13,10 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
 
   // Initialize when modal opens
   useEffect(() => {
-    if (open && group) {
+    if (open && group && group.members && group.members.length > 0) {
       const currentMember = group.members.find(m => m.user_id === user?.id)
       setPaidByMemberId(currentMember?.member_id || group.members[0]?.member_id || null)
-      const per = group.members.length ? 0 : 0
+      const per = 0
       setSplits(group.members.map(m => ({ 
         user_id: m.user_id, 
         share_amount: per, 
@@ -26,13 +26,13 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
         share_percentage: 0
       })))
     }
-  }, [open, group, user])
+  }, [open, group?.members?.length, user?.id])
 
   // Auto-calculate equal splits when amount or mode changes
   const total = Number(amount || 0)
   useEffect(() => {
-    if (mode === 'equal' && group) {
-      const n = Math.max(group.members.length, 1)
+    if (mode === 'equal' && group && group.members && group.members.length > 0 && open) {
+      const n = group.members.length
       const per = n ? +(total / n).toFixed(2) : 0
       setSplits(group.members.map(m => ({ 
         user_id: m.user_id, 
@@ -43,7 +43,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
         share_percentage: 0
       })))
     }
-  }, [total, mode, group?.members?.length])
+  }, [total, mode, group?.members?.length, open])
 
   function updateSplit(memberId, value) {
     const val = Number(value || 0)
@@ -71,7 +71,16 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
     onClose()
   }
 
-  if (!open || !group) return null
+  if (!open) return null
+  if (!group || !group.members || group.members.length === 0) {
+    return (
+      <Modal open={open} onClose={handleClose}>
+        <div className="p-6 text-center">
+          <div className="text-neutral-600 dark:text-neutral-400">Loading...</div>
+        </div>
+      </Modal>
+    )
+  }
 
   return (
     <Modal open={open} onClose={handleClose}>
@@ -109,7 +118,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
               value={paidByMemberId || ''} 
               onChange={e=>setPaidByMemberId(Number(e.target.value))}
             >
-              {group.members.map(m => (
+              {group && group.members && group.members.map(m => (
                 <option key={m.member_id} value={m.member_id}>
                   {m.name || m.user_id}{m.is_ghost?' (offline)':''}
                 </option>
@@ -127,9 +136,12 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
               </div>
             </div>
             <div className="space-y-2 max-h-40 overflow-y-auto">
-              {splits.map(s => (
+              {splits && splits.length > 0 ? splits.map(s => (
                 <div key={s.member_id} className="flex items-center gap-2 text-sm">
-                  <div className="flex-1 text-neutral-700 dark:text-neutral-300">{s.name}{s.is_ghost?' 📴':''}</div>
+                  <div className="flex-1 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
+                    <Avatar name={s.name} size={18} ghost={s.is_ghost} />
+                    <span>{s.name}</span>
+                  </div>
                   {mode==='percent' ? (
                     <div className="flex items-center gap-1">
                       <input 
@@ -138,7 +150,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
                         value={s.share_percentage||''} 
                         onChange={e=>setSplits(prev=>prev.map(x=>x.member_id===s.member_id?{...x, share_percentage:Number(e.target.value||0)}:x))} 
                       />
-                      <span className="text-neutral-500">%</span>
+                      <span className="text-neutral-500 dark:text-neutral-400">%</span>
                     </div>
                   ) : (
                     <input 
@@ -150,7 +162,9 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
                     />
                   )}
                 </div>
-              ))}
+              )) : (
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">No members to split with</div>
+              )}
             </div>
             {mode==='percent' && (
               <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">Percentages should sum to 100</div>
