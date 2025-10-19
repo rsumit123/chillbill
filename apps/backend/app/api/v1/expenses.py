@@ -34,17 +34,27 @@ async def list_expenses(group_id: str, current_user=Depends(get_current_user), d
     # simple list without pagination for MVP
     res = await db.execute(select(Expense).where(Expense.group_id == group_id, Expense.deleted_at.is_(None)).order_by(Expense.date.desc()))
     expenses = res.scalars().all()
-    return [
-        {
+    
+    result = []
+    for e in expenses:
+        # Get splits for this expense
+        splits_res = await db.execute(select(ExpenseSplit).where(ExpenseSplit.expense_id == e.id))
+        splits = splits_res.scalars().all()
+        
+        # Get member IDs involved in this expense
+        participant_ids = [s.member_id for s in splits]
+        
+        result.append({
             "id": e.id,
             "total_amount": float(e.total_amount),
             "currency": e.currency,
             "note": e.note,
             "date": e.date.isoformat(),
             "created_by": e.created_by,
-        }
-        for e in expenses
-    ]
+            "participant_member_ids": participant_ids,  # List of member_ids involved
+        })
+    
+    return result
 
 
 @router.post("/{group_id}/expenses", response_model=dict)

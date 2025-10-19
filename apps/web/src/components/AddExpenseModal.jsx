@@ -8,14 +8,19 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
   const [amount, setAmount] = useState('')
   const [paidByMemberId, setPaidByMemberId] = useState(null)
   const [splits, setSplits] = useState([])
+  const [selectedMembers, setSelectedMembers] = useState(new Set())
   const [mode, setMode] = useState('equal')
   const [amountError, setAmountError] = useState('')
 
-  // Initialize when modal opens
+  // Initialize when modal opens - select all members by default
   useEffect(() => {
     if (open && group && group.members && group.members.length > 0) {
       const currentMember = group.members.find(m => m.user_id === user?.id)
       setPaidByMemberId(currentMember?.member_id || group.members[0]?.member_id || null)
+      
+      // Select all members by default
+      setSelectedMembers(new Set(group.members.map(m => m.member_id)))
+      
       const per = 0
       setSplits(group.members.map(m => ({ 
         user_id: m.user_id, 
@@ -28,22 +33,37 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
     }
   }, [open, group?.members?.length, user?.id])
 
-  // Auto-calculate equal splits when amount or mode changes
+  // Auto-calculate equal splits when amount, mode, or selected members change
   const total = Number(amount || 0)
   useEffect(() => {
     if (mode === 'equal' && group && group.members && group.members.length > 0 && open) {
-      const n = group.members.length
-      const per = n ? +(total / n).toFixed(2) : 0
+      const selectedCount = selectedMembers.size
+      const per = selectedCount > 0 ? +(total / selectedCount).toFixed(2) : 0
+      
       setSplits(group.members.map(m => ({ 
         user_id: m.user_id, 
         name: m.name || m.user_id, 
-        share_amount: per, 
+        share_amount: selectedMembers.has(m.member_id) ? per : 0,
         is_ghost: m.is_ghost, 
         member_id: m.member_id,
-        share_percentage: 0
+        share_percentage: selectedMembers.has(m.member_id) ? (100 / selectedCount) : 0
       })))
     }
-  }, [total, mode, group?.members?.length, open])
+  }, [total, mode, selectedMembers.size, group?.members?.length, open])
+
+  function toggleMember(memberId) {
+    setSelectedMembers(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(memberId)) {
+        if (newSet.size > 1) { // Must have at least one member selected
+          newSet.delete(memberId)
+        }
+      } else {
+        newSet.add(memberId)
+      }
+      return newSet
+    })
+  }
 
   function updateSplit(memberId, value) {
     const val = Number(value || 0)
@@ -56,8 +76,18 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
       setAmountError('Enter an amount greater than 0')
       return
     }
+    if (selectedMembers.size === 0) {
+      setAmountError('Select at least one member')
+      return
+    }
     setAmountError('')
-    onSubmit({ note, amount, paidByMemberId, splits, mode })
+    
+    // Only send splits for selected members
+    const filteredSplits = mode === 'percent'
+      ? splits.filter(s => selectedMembers.has(s.member_id))
+      : splits.filter(s => selectedMembers.has(s.member_id) && s.share_amount > 0)
+    
+    onSubmit({ note, amount, paidByMemberId, splits: filteredSplits, mode })
     // Reset form
     setNote('')
     setAmount('')
@@ -126,9 +156,33 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
             </select>
           </div>
 
+          {/* Split with - Member Selection */}
+          <div>
+            <label className="text-sm text-neutral-700 dark:text-neutral-300 mb-2 block">Split with</label>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto p-2 border dark:border-neutral-700 rounded-md bg-neutral-50 dark:bg-neutral-800/50">
+              {group && group.members && group.members.map(m => (
+                <label key={m.member_id} className="flex items-center gap-2 cursor-pointer hover:bg-neutral-100 dark:hover:bg-neutral-700 p-1.5 rounded">
+                  <input
+                    type="checkbox"
+                    checked={selectedMembers.has(m.member_id)}
+                    onChange={() => toggleMember(m.member_id)}
+                    className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600"
+                  />
+                  <Avatar name={m.name || m.user_id} size={18} ghost={m.is_ghost} />
+                  <span className="text-sm text-neutral-700 dark:text-neutral-300">
+                    {m.name || m.user_id}{m.is_ghost?' (offline)':''}
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+              {selectedMembers.size} of {group?.members?.length || 0} members selected
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-sm text-neutral-700 dark:text-neutral-300">Split</label>
+              <label className="text-sm text-neutral-700 dark:text-neutral-300">Split mode</label>
               <div className="inline-flex rounded-md border dark:border-neutral-700 overflow-hidden text-xs">
                 <button type="button" onClick={()=>setMode('equal')} className={`px-3 py-1 ${mode==='equal'?'bg-blue-600 text-white':'bg-white dark:bg-neutral-800'}`}>Equal</button>
                 <button type="button" onClick={()=>setMode('amount')} className={`px-3 py-1 ${mode==='amount'?'bg-blue-600 text-white':'bg-white dark:bg-neutral-800'}`}>Amount</button>
@@ -136,7 +190,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
               </div>
             </div>
             <div className="space-y-2 max-h-40 overflow-y-auto">
-              {splits && splits.length > 0 ? splits.map(s => (
+              {splits && splits.length > 0 ? splits.filter(s => selectedMembers.has(s.member_id)).map(s => (
                 <div key={s.member_id} className="flex items-center gap-2 text-sm">
                   <div className="flex-1 text-neutral-700 dark:text-neutral-300 flex items-center gap-1">
                     <Avatar name={s.name} size={18} ghost={s.is_ghost} />
@@ -163,7 +217,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
                   )}
                 </div>
               )) : (
-                <div className="text-sm text-neutral-500 dark:text-neutral-400">No members to split with</div>
+                <div className="text-sm text-neutral-500 dark:text-neutral-400">Select members to split with</div>
               )}
             </div>
             {mode==='percent' && (

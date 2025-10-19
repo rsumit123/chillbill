@@ -229,29 +229,53 @@ export default function GroupDetailPage() {
           <ul className="space-y-2">
             {expenses.map(e => {
               const payer = group.members.find(m => m.user_id === e.created_by);
+              // Get participants from member_ids
+              const participants = e.participant_member_ids 
+                ? e.participant_member_ids.map(mid => group.members.find(m => m.member_id === mid)).filter(Boolean)
+                : [];
               return (
                 <li key={e.id} className="border dark:border-neutral-700 rounded-xl p-4 bg-white dark:bg-neutral-900 flex items-center justify-between gap-3 hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
                     <input 
                       type="checkbox" 
                       checked={!!selected[e.id]} 
                       onChange={ev=>setSelected(s=>({ ...s, [e.id]: ev.target.checked }))} 
                       className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600"
                     />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="font-medium text-neutral-900 dark:text-neutral-100">{e.note || 'Expense'}</div>
-                      <div className="text-xs text-neutral-500 dark:text-neutral-400 flex items-center gap-2 mt-0.5">
-                        <span>{new Date(e.date).toLocaleDateString()}</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Avatar name={payer?.name || 'Unknown'} size={14} ghost={payer?.is_ghost} />
-                          {payer?.name || 'Unknown'}
-                        </span>
+                      <div className="text-xs text-neutral-500 dark:text-neutral-400 space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span>{new Date(e.date).toLocaleDateString()}</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Avatar name={payer?.name || 'Unknown'} size={14} ghost={payer?.is_ghost} />
+                            Paid by {payer?.name || 'Unknown'}
+                          </span>
+                        </div>
+                        {participants.length > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-neutral-400">Split:</span>
+                            <div className="flex items-center -space-x-1">
+                              {participants.slice(0, 4).map((p, idx) => (
+                                <div key={p.member_id} style={{ zIndex: 10 - idx }} title={p.name || p.user_id}>
+                                  <Avatar name={p.name || p.user_id} size={18} ghost={p.is_ghost} />
+                                </div>
+                              ))}
+                              {participants.length > 4 && (
+                                <div className="w-5 h-5 rounded-full bg-neutral-200 dark:bg-neutral-700 text-[10px] flex items-center justify-center text-neutral-600 dark:text-neutral-300 font-medium border border-white dark:border-neutral-900">
+                                  +{participants.length - 4}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-neutral-400">({participants.length})</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="font-semibold text-neutral-900 dark:text-neutral-100">{currency(e.total_amount, e.currency)}</div>
+                    <div className="font-semibold text-neutral-900 dark:text-neutral-100 whitespace-nowrap">{currency(e.total_amount, e.currency)}</div>
                     <KebabMenu items={[
                       { label: 'Edit', onClick: ()=>{ setEditId(e.id); setEditOpen(true) } }, 
                       { label: 'Delete', destructive: true, onClick: ()=>deleteOne(e.id) }
