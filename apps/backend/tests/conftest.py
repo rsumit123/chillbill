@@ -4,6 +4,7 @@ Pytest configuration and shared fixtures for backend tests.
 import asyncio
 import os
 import pytest
+import pytest_asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -20,54 +21,63 @@ from app.db.models.settlement import Settlement
 from app.core.security import hash_password
 
 
-# Test database URL (in-memory SQLite)
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Test database URL (file-based for proper async support)
+import tempfile
+import os
+
+# Create a unique temp file for each test run
+TEST_DB_FILE = tempfile.mktemp(suffix=".db")
+TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
 
 
 @pytest.fixture(scope="session")
 def event_loop():
     """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
+    policy = asyncio.get_event_loop_policy()
+    loop = policy.new_event_loop()
     yield loop
     loop.close()
+    # Cleanup temp database file
+    if os.path.exists(TEST_DB_FILE):
+        os.remove(TEST_DB_FILE)
 
 
-@pytest.fixture
-async def test_db_engine():
-    """Create a test database engine."""
+@pytest_asyncio.fixture(scope="function")
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Create a test database session with fresh schema for each test."""
     # Import all models to ensure they're registered with Base.metadata
-    # (already imported at top of file, but making explicit)
     _ = (User, Group, GroupMember, Expense, ExpenseSplit, Activity, Settlement)
     
+    # Create engine for this test
     engine = create_async_engine(
         TEST_DATABASE_URL,
         connect_args={"check_same_thread": False},
         poolclass=NullPool,
+        echo=False,
     )
     
+    # Create all tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     
-    yield engine
+    # Create session
+    async_session = async_sessionmaker(
+        engine, 
+        class_=AsyncSession, 
+        expire_on_commit=False,
+    )
     
+    async with async_session() as session:
+        yield session
+    
+    # Cleanup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
     
     await engine.dispose()
 
 
-@pytest.fixture
-async def db_session(test_db_engine) -> AsyncGenerator[AsyncSession, None]:
-    """Create a test database session."""
-    async_session = async_sessionmaker(
-        test_db_engine, class_=AsyncSession, expire_on_commit=False
-    )
-    
-    async with async_session() as session:
-        yield session
-
-
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Create a test HTTP client with database session override."""
     async def override_get_db():
@@ -82,7 +92,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     app.dependency_overrides.clear()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_user(db_session: AsyncSession) -> User:
     """Create a test user."""
     user = User(
@@ -97,7 +107,7 @@ async def test_user(db_session: AsyncSession) -> User:
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_user2(db_session: AsyncSession) -> User:
     """Create a second test user."""
     user = User(
@@ -112,7 +122,7 @@ async def test_user2(db_session: AsyncSession) -> User:
     return user
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def auth_token(client: AsyncClient, test_user: User) -> str:
     """Get authentication token for test user."""
     response = await client.post(
@@ -120,10 +130,12 @@ async def auth_token(client: AsyncClient, test_user: User) -> str:
         json={"email": test_user.email, "password": "password123"},
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    data = response.json()
+    # API now returns {tokens: {access_token, refresh_token, token_type}, user: {...}}
+    return data["tokens"]["access_token"]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def auth_token2(client: AsyncClient, test_user2: User) -> str:
     """Get authentication token for second test user."""
     response = await client.post(
@@ -131,10 +143,12 @@ async def auth_token2(client: AsyncClient, test_user2: User) -> str:
         json={"email": test_user2.email, "password": "password123"},
     )
     assert response.status_code == 200
-    return response.json()["access_token"]
+    data = response.json()
+    # API now returns {tokens: {access_token, refresh_token, token_type}, user: {...}}
+    return data["tokens"]["access_token"]
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_group(db_session: AsyncSession, test_user: User) -> Group:
     """Create a test group."""
     group = Group(
@@ -142,6 +156,7 @@ async def test_group(db_session: AsyncSession, test_user: User) -> Group:
         name="Test Group",
         currency="USD",
         icon="group",
+        created_by=test_user.id,  # Add created_by field
     )
     db_session.add(group)
     await db_session.flush()
@@ -158,7 +173,7 @@ async def test_group(db_session: AsyncSession, test_user: User) -> Group:
     return group
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="function")
 async def test_group_with_members(
     db_session: AsyncSession, test_user: User, test_user2: User
 ) -> tuple[Group, list[GroupMember]]:
@@ -168,6 +183,7 @@ async def test_group_with_members(
         name="Test Group with Members",
         currency="INR",
         icon="trip",
+        created_by=test_user.id,  # Add created_by field
     )
     db_session.add(group)
     await db_session.flush()
@@ -186,7 +202,7 @@ async def test_group_with_members(
     member3 = GroupMember(
         group_id=group.id,
         user_id=None,
-        ghost_name="Ghost Member",
+        name="Ghost Member",  # Field is 'name', not 'ghost_name'
         is_ghost=True,
     )
     

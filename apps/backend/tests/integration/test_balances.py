@@ -222,19 +222,19 @@ class TestSettlements:
         await db_session.commit()
         
         response = await client.get(
-            f"/api/v1/groups/{group.id}/settlements",
+            f"/api/v1/groups/{group.id}/settlements/suggestions",
             headers={"Authorization": f"Bearer {auth_token}"},
         )
         
         assert response.status_code == 200
         data = response.json()
-        assert "settlements" in data
-        assert isinstance(data["settlements"], list)
+        # API returns a list directly, not {settlements: [...]}
+        assert isinstance(data, list)
         
         # Should suggest Member 0 pays Member 1 $50
-        if len(data["settlements"]) > 0:
-            settlement = data["settlements"][0]
-            assert "from_user" in settlement
-            assert "to_user" in settlement
+        if len(data) > 0:
+            settlement = data[0]
+            assert "from_user_id" in settlement
+            assert "to_user_id" in settlement
             assert "amount" in settlement
 

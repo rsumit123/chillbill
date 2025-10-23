@@ -24,9 +24,13 @@ class TestAuthSignup:
         
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
+        # API returns {tokens: {...}, user: {...}}
+        assert "tokens" in data
+        assert "user" in data
+        assert "access_token" in data["tokens"]
+        assert "refresh_token" in data["tokens"]
+        assert data["tokens"]["token_type"] == "bearer"
+        assert data["user"]["email"] == "newuser@example.com"
     
     async def test_signup_duplicate_email(self, client: AsyncClient, test_user: User):
         """Test signup with duplicate email."""
@@ -71,9 +75,12 @@ class TestAuthLogin:
         
         assert response.status_code == 200
         data = response.json()
-        assert "access_token" in data
-        assert "refresh_token" in data
-        assert data["token_type"] == "bearer"
+        # API returns {tokens: {...}, user: {...}}
+        assert "tokens" in data
+        assert "user" in data
+        assert "access_token" in data["tokens"]
+        assert "refresh_token" in data["tokens"]
+        assert data["tokens"]["token_type"] == "bearer"
     
     async def test_login_wrong_password(self, client: AsyncClient, test_user: User):
         """Test login with wrong password."""
@@ -86,7 +93,9 @@ class TestAuthLogin:
         )
         
         assert response.status_code == 401
-        assert "incorrect" in response.json()["detail"].lower()
+        # API returns "Invalid credentials"
+        detail = response.json()["detail"].lower()
+        assert "invalid" in detail or "incorrect" in detail
     
     async def test_login_nonexistent_user(self, client: AsyncClient):
         """Test login with non-existent email."""
@@ -114,7 +123,8 @@ class TestAuthRefresh:
                 "password": "password123",
             },
         )
-        refresh_token = login_response.json()["refresh_token"]
+        # API returns {tokens: {...}, user: {...}}
+        refresh_token = login_response.json()["tokens"]["refresh_token"]
         
         # Refresh the token
         response = await client.post(
@@ -125,7 +135,7 @@ class TestAuthRefresh:
         assert response.status_code == 200
         data = response.json()
         assert "access_token" in data
-        assert data["token_type"] == "bearer"
+        # Refresh endpoint only returns access_token, not token_type
     
     async def test_refresh_token_invalid(self, client: AsyncClient):
         """Test refresh with invalid token."""
