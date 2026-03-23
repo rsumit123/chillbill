@@ -12,7 +12,6 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - REFRESH_TOKEN_EXPIRE_MINUTES=43200
     volumes:
-      - ./apps/backend:/app
       - backend_db:/data
   web:
     build:
