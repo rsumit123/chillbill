@@ -4,8 +4,6 @@ services:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     environment:
       - DB_URL=sqlite+aiosqlite:////data/chillbill.db
       - BACKEND_CORS_ORIGINS=["http://localhost:5173"]
