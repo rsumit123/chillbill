@@ -39,7 +39,7 @@ export default function GroupsPage() {
         const data = await api.get('/groups/', { token: accessToken })
         // fetch details to get member names for avatars and group currency
         const detailed = await Promise.allSettled(
-          data.map(g => api.get(`/groups/${g.id}`, { token: accessToken }))
+          data.map(g => api.get(`/dashboard/groups/${g.id}`, { token: accessToken }))
         )
         const groupsWithMembers = data.map((g, i) => ({ ...g, ...detailed[i].status==='fulfilled' ? { icon: detailed[i].value.icon, currency: detailed[i].value.currency } : {}, _members: detailed[i].status==='fulfilled' ? detailed[i].value.members : [] }))
         if (mounted) setGroups(groupsWithMembers)
@@ -59,7 +59,7 @@ export default function GroupsPage() {
 
   async function computeSummary(data, groupsWithMembers) {
     const balances = await Promise.allSettled(
-      data.map(g => api.get(`/groups/${g.id}/balances`, { token: accessToken }))
+      data.map(g => api.get(`/dashboard/groups/${g.id}/balances`, { token: accessToken }))
     )
     const byGroup = {}
     let totalOwes = 0, totalOwed = 0
@@ -100,7 +100,7 @@ export default function GroupsPage() {
         const memberPromises = emails.map(entry => {
           const isEmail = /.+@.+\..+/.test(entry)
           const payload = isEmail ? { email: entry } : { name: entry }
-          return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
+          return api.post(`/dashboard/groups/${g.id}/members`, payload, { token: accessToken })
         })
         await Promise.allSettled(memberPromises)
         push('Group created with members successfully', 'success')
@@ -255,20 +255,20 @@ export default function GroupsPage() {
                 <div
                   role="button"
                   tabIndex={0}
-                  onClick={() => navigate(`/groups/${g.id}`)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/groups/${g.id}`) }}
+                  onClick={() => navigate(`/dashboard/groups/${g.id}`)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') navigate(`/dashboard/groups/${g.id}`) }}
                   className="border rounded-lg p-4 bg-white dark:bg-neutral-900 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer flex flex-col gap-2"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <GroupBadge icon={<Icon id={g.icon || 'group'} size={14} />} />
                       <div className="font-medium">
-                        <Link to={`/groups/${g.id}`} className="hover:underline">{g.name}</Link>
+                        <Link to={`/dashboard/groups/${g.id}`} className="hover:underline">{g.name}</Link>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-1 rounded-md ring-1 ${badge.cls}`}>{badge.text}</span>
-                      <KebabMenu items={[{ label: 'Open', onClick: ()=>navigate(`/groups/${g.id}`) }, { label: 'Delete', destructive: true, onClick: ()=>requestDelete(g) }]} />
+                      <KebabMenu items={[{ label: 'Open', onClick: ()=>navigate(`/dashboard/groups/${g.id}`) }, { label: 'Delete', destructive: true, onClick: ()=>requestDelete(g) }]} />
                     </div>
                   </div>
                   <div className="text-xs text-neutral-500">Currency: {g.currency}</div>

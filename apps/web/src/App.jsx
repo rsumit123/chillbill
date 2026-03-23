@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
+import LandingPage from './pages/LandingPage.jsx'
 import GroupsPage from './pages/GroupsPage.jsx'
 import GroupDetailPage from './pages/GroupDetailPage.jsx'
 import Layout from './components/Layout.jsx'
@@ -14,16 +15,23 @@ function ProtectedRoute({ children }) {
   return children
 }
 
+function PublicHome() {
+  const { isAuthenticated } = useAuth()
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />
+  return <LandingPage />
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
           <Routes>
+          <Route path="/" element={<PublicHome />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route
-            path="/"
+            path="/dashboard"
             element={
               <ProtectedRoute>
                 <Layout />
@@ -39,5 +47,3 @@ export default function App() {
     </ThemeProvider>
   )
 }
-
-

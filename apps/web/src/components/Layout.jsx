@@ -31,7 +31,7 @@ export default function Layout() {
       <header className="sticky top-0 z-20 backdrop-blur-lg bg-gradient-to-r from-white/80 via-blue-50/80 to-indigo-50/80 dark:from-neutral-900/80 dark:via-blue-950/40 dark:to-indigo-950/40 border-b border-neutral-200/50 dark:border-neutral-700/50 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo Section */}
-          <Link to="/" className="flex items-center gap-2.5 group">
+          <Link to="/dashboard" className="flex items-center gap-2.5 group">
             {/* Logo Icon */}
             <div className="relative">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:shadow-blue-500/50 transition-all group-hover:scale-105">
@@ -57,7 +57,7 @@ export default function Layout() {
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-3">
             <NavLink 
-              to="/" 
+              to="/dashboard" 
               className={({isActive}) => `
                 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
                 ${isActive 
@@ -156,7 +156,7 @@ export default function Layout() {
                   {/* Menu Items */}
                   <div className="py-2">
                     <NavLink 
-                      to="/" 
+                      to="/dashboard" 
                       className="flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
                       onClick={() => setMenuOpen(false)}
                     >
