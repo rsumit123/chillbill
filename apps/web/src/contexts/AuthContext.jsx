@@ -73,18 +73,6 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(tokens?.access_token),
     sessionExpired,
     clearSessionExpired: () => setSessionExpired(false),
-    login: async (email, password) => {
-      const res = await api.post('/auth/login', { email, password })
-      setUser(res.user)
-      setTokens(res.tokens)
-      setSessionExpired(false) // Clear session expired flag on successful login
-    },
-    signup: async (name, email, password) => {
-      const res = await api.post('/auth/signup', { name, email, password })
-      setUser(res.user)
-      setTokens(res.tokens)
-      setSessionExpired(false)
-    },
     googleLogin: async (googleToken) => {
       const res = await api.post('/auth/google', { token: googleToken })
       setUser(res.user)
