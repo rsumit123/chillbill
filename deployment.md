@@ -158,6 +158,11 @@ You should see `Access-Control-Allow-Origin: https://chillbill.skdev.one` and `A
 - TLS issues:
   - Nginx: re-run certbot or check DNS; Caddy: ensure service reloaded and domain resolves to VM
 
+### Important: Port configuration
+- The base `docker-compose.yml` does **not** expose any host port for the backend. Port mapping is handled entirely by `docker-compose.override.yml` per environment.
+- `docker-compose.override.yml` is **gitignored** so each deployment (local dev, VM) maintains its own port and environment config without conflicts.
+- The GCP VM hosts multiple projects as Docker containers. ChillBill backend uses host port **8001** (port 8000 is taken by another project). Always pick a unique, unused port when deploying.
+
 ### Notes and future scaling
 - Current setup uses SQLite and local uploads under `/data` (mounted to `/srv/chillbill-data`). This is great for a single instance
 - To scale across instances: switch to Postgres (e.g., managed DB) and store uploads in object storage (e.g., S3/GCS), then run multiple backend replicas behind the proxy
