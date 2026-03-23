@@ -14,6 +14,7 @@ class Settings(BaseSettings):
         os.getenv("BACKEND_CORS_ORIGINS", "http://localhost:5173").split(",")
     )
     uploads_dir: str = os.getenv("UPLOADS_DIR", "./uploads/receipts")
+    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
 
 
 @lru_cache

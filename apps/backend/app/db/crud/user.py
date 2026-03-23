@@ -13,8 +13,21 @@ async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
     return await db.get(User, user_id)
 
 
-async def create_user(db: AsyncSession, email: str, name: str, password_hash: str) -> User:
-    user = User(email=email, name=name, password_hash=password_hash)
+async def create_user(
+    db: AsyncSession,
+    email: str,
+    name: str,
+    password_hash: str | None = None,
+    avatar_url: str | None = None,
+    auth_provider: str = "email",
+) -> User:
+    user = User(
+        email=email,
+        name=name,
+        password_hash=password_hash,
+        avatar_url=avatar_url,
+        auth_provider=auth_provider,
+    )
     db.add(user)
     await db.commit()
     await db.refresh(user)

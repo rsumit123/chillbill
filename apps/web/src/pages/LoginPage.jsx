@@ -2,9 +2,10 @@ import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { useToast } from '../components/Toast.jsx'
+import GoogleSignInButton from '../components/GoogleSignInButton.jsx'
 
 export default function LoginPage() {
-  const { login } = useAuth()
+  const { login, googleLogin } = useAuth()
   const { push } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -114,6 +115,26 @@ export default function LoginPage() {
                   {loading ? 'Signing in...' : 'Sign in'}
                 </button>
               </form>
+              <div className="my-5 flex items-center gap-3">
+                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+                <span className="text-xs text-neutral-400 dark:text-neutral-500">or</span>
+                <div className="flex-1 h-px bg-neutral-200 dark:bg-neutral-700" />
+              </div>
+              <GoogleSignInButton
+                disabled={loading}
+                onSuccess={async (credential) => {
+                  setError('')
+                  setLoading(true)
+                  try {
+                    await googleLogin(credential)
+                    push('Signed in with Google', 'success')
+                    navigate('/dashboard')
+                  } catch (err) {
+                    setError(err.message || 'Google sign-in failed')
+                  } finally { setLoading(false) }
+                }}
+                onError={(msg) => setError(msg)}
+              />
               <div className="mt-5 text-sm text-center text-neutral-500 dark:text-neutral-400">
                 No account? <Link to="/signup" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">Create one</Link>
               </div>

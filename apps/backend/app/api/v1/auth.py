@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
 
+from google.oauth2 import id_token as google_id_token
+from google.auth.transport import requests as google_requests
+
 from app.core.security import create_token, hash_password, verify_password
 from app.core.config import settings
 from app.core.deps import get_db
@@ -35,7 +38,21 @@ class RefreshResponse(BaseModel):
     access_token: str
 
 
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+
 router = APIRouter()
+
+
+def _user_dict(user: User) -> dict:
+    return {"id": user.id, "email": user.email, "name": user.name, "avatar_url": user.avatar_url}
+
+
+def _token_pair(user_id: str) -> dict:
+    access = create_token(user_id, settings.access_token_expire_minutes, token_type="access")
+    refresh = create_token(user_id, settings.refresh_token_expire_minutes, token_type="refresh")
+    return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
 
 
 @router.post("/signup", response_model=AuthResponse)
@@ -44,19 +61,60 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     user = await create_user(db, email=payload.email, name=payload.name, password_hash=hash_password(payload.password))
-    access = create_token(user.id, settings.access_token_expire_minutes, token_type="access")
-    refresh = create_token(user.id, settings.refresh_token_expire_minutes, token_type="refresh")
-    return {"user": {"id": user.id, "email": user.email, "name": user.name, "avatar_url": user.avatar_url}, "tokens": {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}}
+    return {"user": _user_dict(user), "tokens": _token_pair(user.id)}
 
 
 @router.post("/login", response_model=AuthResponse)
 async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)):
     user = await get_user_by_email(db, payload.email)
+    if user and user.password_hash is None:
+        raise HTTPException(
+            status_code=400,
+            detail="This account uses Google Sign-In. Please sign in with Google.",
+        )
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    access = create_token(user.id, settings.access_token_expire_minutes, token_type="access")
-    refresh = create_token(user.id, settings.refresh_token_expire_minutes, token_type="refresh")
-    return {"user": {"id": user.id, "email": user.email, "name": user.name, "avatar_url": user.avatar_url}, "tokens": {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}}
+    return {"user": _user_dict(user), "tokens": _token_pair(user.id)}
+
+
+@router.post("/google", response_model=AuthResponse)
+async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get_db)):
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google Sign-In is not configured")
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            payload.token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    email = idinfo.get("email")
+    if not email:
+        raise HTTPException(status_code=401, detail="Google account has no email")
+
+    name = idinfo.get("name", email.split("@")[0])
+    picture = idinfo.get("picture")
+
+    user = await get_user_by_email(db, email)
+    if not user:
+        user = await create_user(
+            db,
+            email=email,
+            name=name,
+            password_hash=None,
+            avatar_url=picture,
+            auth_provider="google",
+        )
+    else:
+        if picture and not user.avatar_url:
+            user.avatar_url = picture
+            await db.commit()
+            await db.refresh(user)
+
+    return {"user": _user_dict(user), "tokens": _token_pair(user.id)}
 
 
 class RefreshRequest(BaseModel):

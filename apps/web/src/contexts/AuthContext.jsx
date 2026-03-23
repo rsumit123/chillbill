@@ -85,7 +85,13 @@ export function AuthProvider({ children }) {
       setTokens(res.tokens)
       setSessionExpired(false)
     },
-    logout: () => { 
+    googleLogin: async (googleToken) => {
+      const res = await api.post('/auth/google', { token: googleToken })
+      setUser(res.user)
+      setTokens(res.tokens)
+      setSessionExpired(false)
+    },
+    logout: () => {
       setUser(null)
       setTokens(null)
       setSessionExpired(false)
