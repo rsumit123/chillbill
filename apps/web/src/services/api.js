@@ -25,7 +25,7 @@ async function request(path, { method = 'GET', body, token, headers, _isRetry = 
   })
   
   // Handle 401 Unauthorized - token expired
-  if (res.status === 401 && !_isRetry && path !== '/auth/refresh' && path !== '/auth/login') {
+  if (res.status === 401 && !_isRetry && path !== '/auth/refresh' && path !== '/auth/login' && path !== '/auth/google') {
     // Try to refresh token
     if (tokenRefreshCallback) {
       try {

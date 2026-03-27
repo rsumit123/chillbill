@@ -72,7 +72,9 @@ async def _exchange_code_for_userinfo(code: str, redirect_uri: str | None = None
             },
         )
     if resp.status_code != 200:
-        raise HTTPException(status_code=401, detail="Failed to exchange Google auth code")
+        import logging
+        logging.error(f"Google token exchange failed: {resp.status_code} {resp.text}")
+        raise HTTPException(status_code=401, detail=f"Google token exchange failed: {resp.json().get('error_description', resp.json().get('error', 'unknown'))}")
 
     token_data = resp.json()
     raw_id_token = token_data.get("id_token")
