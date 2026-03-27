@@ -39,7 +39,7 @@ export default function GroupsPage() {
         const data = await api.get('/groups/', { token: accessToken })
         // fetch details to get member names for avatars and group currency
         const detailed = await Promise.allSettled(
-          data.map(g => api.get(`/dashboard/groups/${g.id}`, { token: accessToken }))
+          data.map(g => api.get(`/groups/${g.id}`, { token: accessToken }))
         )
         const groupsWithMembers = data.map((g, i) => ({ ...g, ...detailed[i].status==='fulfilled' ? { icon: detailed[i].value.icon, currency: detailed[i].value.currency } : {}, _members: detailed[i].status==='fulfilled' ? detailed[i].value.members : [] }))
         if (mounted) setGroups(groupsWithMembers)
@@ -59,7 +59,7 @@ export default function GroupsPage() {
 
   async function computeSummary(data, groupsWithMembers) {
     const balances = await Promise.allSettled(
-      data.map(g => api.get(`/dashboard/groups/${g.id}/balances`, { token: accessToken }))
+      data.map(g => api.get(`/groups/${g.id}/balances`, { token: accessToken }))
     )
     const byGroup = {}
     let totalOwes = 0, totalOwed = 0
@@ -100,7 +100,7 @@ export default function GroupsPage() {
         const memberPromises = emails.map(entry => {
           const isEmail = /.+@.+\..+/.test(entry)
           const payload = isEmail ? { email: entry } : { name: entry }
-          return api.post(`/dashboard/groups/${g.id}/members`, payload, { token: accessToken })
+          return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
         })
         await Promise.allSettled(memberPromises)
         push('Group created with members successfully', 'success')
