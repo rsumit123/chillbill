@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     )
     uploads_dir: str = os.getenv("UPLOADS_DIR", "./uploads/receipts")
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
 
 @lru_cache

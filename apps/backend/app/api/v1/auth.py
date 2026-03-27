@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr
+import httpx
 
 from google.oauth2 import id_token as google_id_token
 from google.auth.transport import requests as google_requests
@@ -39,7 +40,8 @@ class RefreshResponse(BaseModel):
 
 
 class GoogleAuthRequest(BaseModel):
-    token: str
+    code: str | None = None
+    token: str | None = None
 
 
 router = APIRouter()
@@ -53,6 +55,52 @@ def _token_pair(user_id: str) -> dict:
     access = create_token(user_id, settings.access_token_expire_minutes, token_type="access")
     refresh = create_token(user_id, settings.refresh_token_expire_minutes, token_type="refresh")
     return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
+
+
+async def _exchange_code_for_userinfo(code: str) -> dict:
+    """Exchange an authorization code for tokens, then verify the id_token."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://oauth2.googleapis.com/token",
+            data={
+                "code": code,
+                "client_id": settings.google_client_id,
+                "client_secret": settings.google_client_secret,
+                "redirect_uri": "postmessage",
+                "grant_type": "authorization_code",
+            },
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Failed to exchange Google auth code")
+
+    token_data = resp.json()
+    raw_id_token = token_data.get("id_token")
+    if not raw_id_token:
+        raise HTTPException(status_code=401, detail="No id_token in Google response")
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            raw_id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google id_token")
+
+    return idinfo
+
+
+async def _verify_credential_token(token: str) -> dict:
+    """Verify an ID token from the One Tap / renderButton flow."""
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+        return idinfo
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
 
 
 @router.post("/signup", response_model=AuthResponse)
@@ -82,14 +130,13 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
     if not settings.google_client_id:
         raise HTTPException(status_code=501, detail="Google Sign-In is not configured")
 
-    try:
-        idinfo = google_id_token.verify_oauth2_token(
-            payload.token,
-            google_requests.Request(),
-            settings.google_client_id,
-        )
-    except ValueError:
-        raise HTTPException(status_code=401, detail="Invalid Google token")
+    # Support both authorization code flow and credential token flow
+    if payload.code:
+        idinfo = await _exchange_code_for_userinfo(payload.code)
+    elif payload.token:
+        idinfo = await _verify_credential_token(payload.token)
+    else:
+        raise HTTPException(status_code=400, detail="Must provide 'code' or 'token'")
 
     email = idinfo.get("email")
     if not email:
