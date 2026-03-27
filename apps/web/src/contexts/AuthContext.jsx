@@ -73,8 +73,8 @@ export function AuthProvider({ children }) {
     isAuthenticated: Boolean(tokens?.access_token),
     sessionExpired,
     clearSessionExpired: () => setSessionExpired(false),
-    googleLogin: async (code) => {
-      const res = await api.post('/auth/google', { code, redirect_uri: window.location.origin + '/auth/callback' })
+    googleLogin: async (credential) => {
+      const res = await api.post('/auth/google', { token: credential })
       setUser(res.user)
       setTokens(res.tokens)
       setSessionExpired(false)
