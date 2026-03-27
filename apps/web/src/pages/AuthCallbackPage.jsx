@@ -6,13 +6,15 @@ import { Spinner } from '../components/Spinner.jsx'
 
 export default function AuthCallbackPage() {
   const [searchParams] = useSearchParams()
-  const { googleLogin } = useAuth()
+  const { setAuthData } = useAuth()
   const { push } = useToast()
   const navigate = useNavigate()
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const code = searchParams.get('code')
+    const accessToken = searchParams.get('access_token')
+    const refreshToken = searchParams.get('refresh_token')
+    const userJson = searchParams.get('user')
     const err = searchParams.get('error')
 
     if (err) {
@@ -21,23 +23,20 @@ export default function AuthCallbackPage() {
       return
     }
 
-    if (!code) {
+    if (!accessToken || !userJson) {
       navigate('/login')
       return
     }
 
-    async function exchange() {
-      try {
-        await googleLogin(code)
-        push('Signed in successfully', 'success')
-        navigate('/dashboard')
-      } catch (e) {
-        setError(e.message || 'Sign-in failed')
-        setTimeout(() => navigate('/login'), 2000)
-      }
+    try {
+      const user = JSON.parse(userJson)
+      setAuthData(user, { access_token: accessToken, refresh_token: refreshToken, token_type: 'bearer' })
+      push('Signed in successfully', 'success')
+      navigate('/dashboard')
+    } catch {
+      setError('Failed to process sign-in data')
+      setTimeout(() => navigate('/login'), 2000)
     }
-
-    exchange()
   }, [])
 
   return (

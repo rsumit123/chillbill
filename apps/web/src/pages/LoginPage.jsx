@@ -1,16 +1,7 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext.jsx'
-import { useToast } from '../components/Toast.jsx'
+import { Link } from 'react-router-dom'
 import GoogleSignInButton from '../components/GoogleSignInButton.jsx'
 
 export default function LoginPage() {
-  const { googleLogin } = useAuth()
-  const { push } = useToast()
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-neutral-900 dark:to-neutral-950 flex flex-col">
       {/* Back to home */}
@@ -38,26 +29,7 @@ export default function LoginPage() {
           <div className="rounded-2xl border border-neutral-200/60 dark:border-neutral-800/60 bg-white/80 dark:bg-neutral-900/80 backdrop-blur p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-center mb-2 text-neutral-900 dark:text-neutral-100">Sign in to continue</h2>
             <p className="text-sm text-neutral-500 dark:text-neutral-400 text-center mb-6">New here? Your account is created automatically.</p>
-            {error && (
-              <div className="mb-4 text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-lg px-3 py-2 text-center">
-                {error}
-              </div>
-            )}
-            <GoogleSignInButton
-              disabled={loading}
-              onSuccess={async (credential) => {
-                setError('')
-                setLoading(true)
-                try {
-                  await googleLogin(credential)
-                  push('Signed in successfully', 'success')
-                  navigate('/dashboard')
-                } catch (err) {
-                  setError(err.message || 'Sign-in failed')
-                } finally { setLoading(false) }
-              }}
-              onError={(msg) => setError(msg)}
-            />
+            <GoogleSignInButton />
           </div>
         </div>
       </div>

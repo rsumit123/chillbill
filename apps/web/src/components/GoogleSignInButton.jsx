@@ -1,42 +1,20 @@
-import { useEffect, useRef } from 'react'
+import { api } from '../services/api.js'
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
-
-export default function GoogleSignInButton({ onSuccess, onError, disabled }) {
-  const clientRef = useRef(null)
-  const onSuccessRef = useRef(onSuccess)
-  const onErrorRef = useRef(onError)
-
-  onSuccessRef.current = onSuccess
-  onErrorRef.current = onError
-
-  useEffect(() => {
-    if (!GOOGLE_CLIENT_ID) return
-
-    function init() {
-      if (!window.google?.accounts?.oauth2) {
-        setTimeout(init, 200)
-        return
-      }
-
-      clientRef.current = window.google.accounts.oauth2.initCodeClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: 'email profile',
-        ux_mode: 'redirect',
-        redirect_uri: window.location.origin + '/auth/callback',
-      })
+export default function GoogleSignInButton({ disabled }) {
+  async function handleClick() {
+    try {
+      const { auth_url } = await api.get('/auth/google/login')
+      window.location.href = auth_url
+    } catch {
+      alert('Failed to connect to server')
     }
-
-    init()
-  }, [])
-
-  if (!GOOGLE_CLIENT_ID) return null
+  }
 
   return (
     <button
       type="button"
       disabled={disabled}
-      onClick={() => clientRef.current?.requestCode()}
+      onClick={handleClick}
       className="w-full flex items-center justify-center gap-3 border border-neutral-300 dark:border-neutral-600 bg-white dark:bg-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 font-medium rounded-xl py-3 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <svg className="w-5 h-5" viewBox="0 0 24 24">

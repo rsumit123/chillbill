@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     uploads_dir: str = os.getenv("UPLOADS_DIR", "./uploads/receipts")
     google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
     google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    google_redirect_uri: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/api/v1/auth/google/callback")
+    frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
 
 @lru_cache
