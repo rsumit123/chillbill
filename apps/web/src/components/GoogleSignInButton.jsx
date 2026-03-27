@@ -1,15 +1,12 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
-import { useTheme } from '../contexts/ThemeContext.jsx'
+import { useEffect, useRef } from 'react'
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
 export default function GoogleSignInButton({ onSuccess, onError, disabled }) {
-  const { theme } = useTheme()
+  const clientRef = useRef(null)
   const onSuccessRef = useRef(onSuccess)
   const onErrorRef = useRef(onError)
-  const clientRef = useRef(null)
 
-  // Keep refs fresh
   onSuccessRef.current = onSuccess
   onErrorRef.current = onError
 
@@ -25,21 +22,28 @@ export default function GoogleSignInButton({ onSuccess, onError, disabled }) {
       clientRef.current = window.google.accounts.oauth2.initCodeClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: 'email profile',
-        ux_mode: 'popup',
-        callback: (response) => {
-          if (response.code) {
-            onSuccessRef.current?.(response.code)
-          } else if (response.error) {
-            onErrorRef.current?.(response.error_description || response.error || 'Google sign-in failed')
-          }
-        },
-        error_callback: (err) => {
-          onErrorRef.current?.(err?.message || 'Google sign-in was cancelled')
-        },
+        ux_mode: 'redirect',
+        redirect_uri: window.location.origin + '/auth/callback',
       })
     }
 
     init()
+  }, [])
+
+  // On mount, check if we're on the callback with a code
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) {
+      // Clean the URL
+      window.history.replaceState({}, '', window.location.pathname)
+      onSuccessRef.current?.(code)
+    }
+    const error = params.get('error')
+    if (error) {
+      window.history.replaceState({}, '', window.location.pathname)
+      onErrorRef.current?.(error)
+    }
   }, [])
 
   if (!GOOGLE_CLIENT_ID) return null

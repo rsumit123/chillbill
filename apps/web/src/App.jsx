@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage.jsx'
+import AuthCallbackPage from './pages/AuthCallbackPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import GroupsPage from './pages/GroupsPage.jsx'
 import GroupDetailPage from './pages/GroupDetailPage.jsx'
@@ -28,6 +29,7 @@ export default function App() {
           <Routes>
           <Route path="/" element={<PublicHome />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
           <Route path="/signup" element={<Navigate to="/login" replace />} />
           <Route
             path="/dashboard"

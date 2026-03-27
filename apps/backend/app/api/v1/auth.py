@@ -42,6 +42,7 @@ class RefreshResponse(BaseModel):
 class GoogleAuthRequest(BaseModel):
     code: str | None = None
     token: str | None = None
+    redirect_uri: str | None = None
 
 
 router = APIRouter()
@@ -57,7 +58,7 @@ def _token_pair(user_id: str) -> dict:
     return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
 
 
-async def _exchange_code_for_userinfo(code: str) -> dict:
+async def _exchange_code_for_userinfo(code: str, redirect_uri: str | None = None) -> dict:
     """Exchange an authorization code for tokens, then verify the id_token."""
     async with httpx.AsyncClient() as client:
         resp = await client.post(
@@ -66,7 +67,7 @@ async def _exchange_code_for_userinfo(code: str) -> dict:
                 "code": code,
                 "client_id": settings.google_client_id,
                 "client_secret": settings.google_client_secret,
-                "redirect_uri": "postmessage",
+                "redirect_uri": redirect_uri or "postmessage",
                 "grant_type": "authorization_code",
             },
         )
@@ -132,7 +133,7 @@ async def google_auth(payload: GoogleAuthRequest, db: AsyncSession = Depends(get
 
     # Support both authorization code flow and credential token flow
     if payload.code:
-        idinfo = await _exchange_code_for_userinfo(payload.code)
+        idinfo = await _exchange_code_for_userinfo(payload.code, payload.redirect_uri)
     elif payload.token:
         idinfo = await _verify_credential_token(payload.token)
     else:
