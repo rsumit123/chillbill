@@ -63,6 +63,35 @@ def _token_pair(user_id: str) -> dict:
     return {"access_token": access, "refresh_token": refresh, "token_type": "bearer"}
 
 
+async def _upsert_google_user(db: AsyncSession, email: str, name: str | None, picture: str | None) -> User:
+    """Find or create a user from verified Google profile info."""
+    if not email:
+        raise HTTPException(status_code=400, detail="Could not get email from Google")
+    name = name or email.split("@")[0]
+    user = await get_user_by_email(db, email)
+    if not user:
+        user = await create_user(
+            db,
+            email=email,
+            name=name,
+            password_hash=None,
+            avatar_url=picture,
+            auth_provider="google",
+        )
+    else:
+        changed = False
+        if picture and not user.avatar_url:
+            user.avatar_url = picture
+            changed = True
+        if name and user.name != name:
+            user.name = name
+            changed = True
+        if changed:
+            await db.commit()
+            await db.refresh(user)
+    return user
+
+
 # --- Google OAuth: server-side redirect flow (same as finance-agent) ---
 
 @router.get("/google/login")
@@ -129,27 +158,7 @@ async def google_callback(
     name = user_info.get("name", email.split("@")[0])
     picture = user_info.get("picture")
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Could not get email from Google")
-
-    # Find or create user
-    user = await get_user_by_email(db, email)
-    if not user:
-        user = await create_user(
-            db,
-            email=email,
-            name=name,
-            password_hash=None,
-            avatar_url=picture,
-            auth_provider="google",
-        )
-    else:
-        if picture and not user.avatar_url:
-            user.avatar_url = picture
-        if name and user.name != name:
-            user.name = name
-        await db.commit()
-        await db.refresh(user)
+    user = await _upsert_google_user(db, email, name, picture)
 
     # Build tokens
     tokens = _token_pair(user.id)
@@ -165,6 +174,44 @@ async def google_callback(
         "user": json.dumps(user_json),
     })
     return RedirectResponse(url=f"{frontend_url}/auth/callback?{callback_params}")
+
+
+# --- Google ID token exchange (native apps: Android/iOS via Capacitor) ---
+
+class GoogleTokenRequest(BaseModel):
+    id_token: str
+
+
+@router.post("/google/token", response_model=AuthResponse)
+async def google_token(payload: GoogleTokenRequest, db: AsyncSession = Depends(get_db)):
+    """Verify a Google ID token (from a native sign-in) and return our JWT pair.
+
+    Unlike the redirect flow, the ID token here comes from the client, so its
+    signature and audience must be verified against Google.
+    """
+    if not settings.google_client_id:
+        raise HTTPException(status_code=501, detail="Google Sign-In is not configured")
+
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+
+        info = google_id_token.verify_oauth2_token(
+            payload.id_token,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google ID token")
+
+    user = await _upsert_google_user(
+        db,
+        email=info.get("email", ""),
+        name=info.get("name"),
+        picture=info.get("picture"),
+    )
+
+    return {"user": _user_dict(user), "tokens": _token_pair(user.id)}
 
 
 # --- Email/password endpoints (kept for backwards compatibility) ---

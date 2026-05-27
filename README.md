@@ -21,6 +21,7 @@ Splitwise-style expense sharing web app with FastAPI backend and React frontend.
 - ✅ Multi-currency support with live exchange rates
 - ✅ Dark mode
 - ✅ Mobile-friendly responsive design
+- ✅ Native Android app via Capacitor (with native Google Sign-In) — see [apps/web/CAPACITOR_ANDROID.md](./apps/web/CAPACITOR_ANDROID.md)
 - ✅ Comprehensive test coverage
 
 ## Quick Start
