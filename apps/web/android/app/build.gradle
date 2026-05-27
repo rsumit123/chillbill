@@ -16,8 +16,17 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            storeFile file('../keystore/chillbill-release.jks')
+            storePassword System.getenv('CHILLBILL_KEYSTORE_PASSWORD') ?: 'chillbill2026'
+            keyAlias 'chillbill'
+            keyPassword System.getenv('CHILLBILL_KEY_PASSWORD') ?: 'chillbill2026'
+        }
+    }
     buildTypes {
         release {
+            signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
