@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, DateTime, ForeignKey, Numeric, Enum
+from sqlalchemy import String, DateTime, ForeignKey, Numeric, Enum, Integer
 
 from app.db.session import Base
 
@@ -11,8 +11,10 @@ class Settlement(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     group_id: Mapped[str] = mapped_column(String(36), ForeignKey("groups.id", ondelete="CASCADE"), nullable=False)
-    from_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    to_user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    # Settlements are between group members (works for ghost members too,
+    # which have no user_id but do have a member_id).
+    from_member_id: Mapped[int] = mapped_column(Integer, ForeignKey("group_members.id", ondelete="CASCADE"), nullable=False)
+    to_member_id: Mapped[int] = mapped_column(Integer, ForeignKey("group_members.id", ondelete="CASCADE"), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     method: Mapped[str] = mapped_column(

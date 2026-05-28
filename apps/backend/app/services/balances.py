@@ -3,37 +3,45 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.db.models.expense import Expense, ExpenseSplit
-from app.db.models.group import GroupMember
+from app.db.models.settlement import Settlement
 
 
-async def compute_group_balances(db: AsyncSession, group_id: str) -> dict[str, float]:
+async def compute_group_balances(db: AsyncSession, group_id: str) -> dict[int, float]:
+    """Net balance per group member.
+
+    Returns ``{member_id: balance}`` where positive = the member is owed
+    money, negative = the member owes money. Works uniformly for registered
+    and ghost members (both have a ``group_members.id``).
+
+    Settlements reduce balances: when ``from`` pays ``to`` an amount, the
+    payer's debt shrinks (balance moves toward 0 from below) and the
+    creditor's credit shrinks (balance moves toward 0 from above).
     """
-    Compute balances for all members in a group.
-    Returns dict mapping user_id -> balance (positive = owed, negative = owes)
-    For ghost members, we use a placeholder key like "ghost_<member_id>"
-    """
-    balances: dict[str, float] = defaultdict(float)
-    res = await db.execute(select(Expense).where(Expense.group_id == group_id, Expense.deleted_at.is_(None)))
+    balances: dict[int, float] = defaultdict(float)
+
+    # Expenses: payer is credited, each split debits the participant.
+    res = await db.execute(
+        select(Expense).where(Expense.group_id == group_id, Expense.deleted_at.is_(None))
+    )
     expenses = res.scalars().all()
-
     for e in expenses:
-        # The payer gets credit for the full amount
-        # Use paid_by_member_id to find the payer (works for both registered and ghost members)
-        payer_member = await db.get(GroupMember, e.paid_by_member_id)
-        if payer_member:
-            # Use user_id if available (registered user), otherwise use ghost key
-            payer_key = payer_member.user_id if payer_member.user_id else f"ghost_{payer_member.id}"
-            balances[payer_key] += float(e.total_amount)
-        
-        # Each split reduces the member's balance
-        splits_res = await db.execute(select(ExpenseSplit).where(ExpenseSplit.expense_id == e.id))
-        splits = splits_res.scalars().all()
-        for s in splits:
-            # Get the member to find their user_id
-            member = await db.get(GroupMember, s.member_id)
-            if member:
-                # Use user_id if available, otherwise use a ghost key
-                key = member.user_id if member.user_id else f"ghost_{member.id}"
-                balances[key] -= float(s.share_amount)
-    
+        balances[e.paid_by_member_id] += float(e.total_amount)
+        splits_res = await db.execute(
+            select(ExpenseSplit).where(ExpenseSplit.expense_id == e.id)
+        )
+        for s in splits_res.scalars().all():
+            balances[s.member_id] -= float(s.share_amount)
+
+    # Settlements: money moved from `from_member` to `to_member`.
+    res = await db.execute(
+        select(Settlement).where(
+            Settlement.group_id == group_id,
+            Settlement.status == "success",
+        )
+    )
+    for st in res.scalars().all():
+        amt = float(st.amount)
+        balances[st.from_member_id] += amt  # debtor paid → owes less
+        balances[st.to_member_id] -= amt    # creditor received → owed less
+
     return dict(balances)

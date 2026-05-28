@@ -10,6 +10,7 @@ import KebabMenu from '../components/KebabMenu.jsx'
 import AddMemberModal from '../components/AddMemberModal.jsx'
 import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
 import AddExpenseModal from '../components/AddExpenseModal.jsx'
+import SettleUpModal from '../components/SettleUpModal.jsx'
 import { Spinner, ButtonSpinner } from '../components/Spinner.jsx'
 import { useToast } from '../components/Toast.jsx'
 
@@ -33,6 +34,7 @@ export default function GroupDetailPage() {
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [removeMemberOpen, setRemoveMemberOpen] = useState(false)
   const [addExpenseOpen, setAddExpenseOpen] = useState(false)
+  const [settleOpen, setSettleOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -170,22 +172,26 @@ export default function GroupDetailPage() {
         <KebabMenu items={memberMenu} />
       </div>
 
-      {/* Balances Section - Enhanced Design */}
+      {/* Balances Section */}
       {balances && (
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200 dark:border-blue-900 rounded-xl p-4">
-          <h2 className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-3">Group Balances</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-blue-900 dark:text-blue-200">Group Balances</h2>
+            {Object.values(balances.balances).some(v => Math.abs(v) > 0.005) && (
+              <button
+                onClick={() => setSettleOpen(true)}
+                className="text-xs font-medium text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 bg-white/70 dark:bg-neutral-900/60 border border-blue-200 dark:border-blue-800 rounded-lg px-2.5 py-1"
+              >
+                Settle up
+              </button>
+            )}
+          </div>
           <div className="grid gap-2">
             {Object.entries(balances.balances).map(([key, bal]) => {
-              let member;
-              if (key.startsWith('ghost_')) {
-                const memberId = parseInt(key.replace('ghost_', ''));
-                member = group.members.find(m => m.member_id === memberId);
-              } else {
-                member = group.members.find(m => m.user_id === key);
-              }
-              const name = member?.name || key;
-              const isPositive = bal > 0;
-              const isNegative = bal < 0;
+              const member = group.members.find(m => String(m.member_id) === key)
+              const name = member?.name || member?.email || `Member ${key}`
+              const isPositive = bal > 0.005
+              const isNegative = bal < -0.005
               return (
                 <div key={key} className="flex items-center justify-between bg-white/60 dark:bg-neutral-800/60 backdrop-blur rounded-lg px-3 py-2">
                   <div className="flex items-center gap-2">
@@ -199,7 +205,7 @@ export default function GroupDetailPage() {
                     <div className="text-xs text-neutral-500 dark:text-neutral-400">{isPositive?'is owed':isNegative?'owes':'settled'}</div>
                   </div>
                 </div>
-              );
+              )
             })}
           </div>
         </div>
@@ -305,6 +311,7 @@ export default function GroupDetailPage() {
       <AddExpenseModal open={addExpenseOpen} onClose={()=>setAddExpenseOpen(false)} group={group} user={user} onSubmit={addExpense} submitting={submitting} />
       <AddMemberModal open={addMemberOpen} onClose={()=>setAddMemberOpen(false)} onAdd={addMembers} />
       <RemoveMemberModal open={removeMemberOpen} onClose={()=>setRemoveMemberOpen(false)} members={group.members} currentUserId={user?.id} onRemove={removeMember} />
+      <SettleUpModal open={settleOpen} onClose={()=>setSettleOpen(false)} group={group} onSettled={refreshLists} />
     </div>
   )
 }
