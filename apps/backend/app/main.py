@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 
-app = FastAPI(title="ChillBill API", version="0.1.0", openapi_url="/openapi.json")
+app = FastAPI(title="Halvio API", version="0.1.0", openapi_url="/openapi.json")
 
 app.add_middleware(
     CORSMiddleware,

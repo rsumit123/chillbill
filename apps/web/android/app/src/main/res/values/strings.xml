@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">ChillBill</string>
-    <string name="title_activity_main">ChillBill</string>
+    <string name="app_name">Halvio</string>
+    <string name="title_activity_main">Halvio</string>
     <string name="package_name">com.skdev.chillbill</string>
     <string name="custom_url_scheme">com.skdev.chillbill</string>
     <string name="server_client_id">929006071236-bgq741u08q26b0qeqghi5hhnk84k62a7.apps.googleusercontent.com</string>

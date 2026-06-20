@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.skdev.chillbill',
-  appName: 'ChillBill',
+  appName: 'Halvio',
   webDir: 'dist',
   server: {
     // For local dev against the Vite server, uncomment and set your machine's LAN IP:
