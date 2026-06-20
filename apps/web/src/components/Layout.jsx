@@ -46,10 +46,10 @@ export default function Layout() {
             {/* Logo Text */}
             <div className="flex flex-col">
               <span className="font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent leading-none">
-                ChillBill
+                Halvio
               </span>
               <span className="text-[10px] text-neutral-500 dark:text-neutral-400 leading-none hidden sm:block">
-                Split smart, stay chill
+                Halve it. Settle it. Done.
               </span>
             </div>
           </Link>

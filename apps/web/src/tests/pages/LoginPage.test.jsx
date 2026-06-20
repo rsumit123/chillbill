@@ -31,7 +31,7 @@ describe('LoginPage', () => {
   it('renders login form', () => {
     renderWithProviders(<LoginPage />)
     
-    expect(screen.getByText('ChillBill')).toBeInTheDocument()
+    expect(screen.getByText('Halvio')).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/email/i)).toBeInTheDocument()
     expect(screen.getByPlaceholderText(/password/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument()

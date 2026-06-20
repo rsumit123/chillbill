@@ -44,7 +44,7 @@ export default function LandingPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
-            <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">ChillBill</span>
+            <span className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Halvio</span>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -132,7 +132,7 @@ export default function LandingPage() {
       <section className="max-w-5xl mx-auto px-4 pb-20">
         <div className="text-center mb-12">
           <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900 dark:text-neutral-100">Everything you need to split fairly</h2>
-          <p className="mt-3 text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">No spreadsheets. No awkward reminders. Just add expenses and let ChillBill do the math.</p>
+          <p className="mt-3 text-neutral-600 dark:text-neutral-400 max-w-md mx-auto">No spreadsheets. No awkward reminders. Just add expenses and let Halvio do the math.</p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FeatureCard
@@ -145,7 +145,7 @@ export default function LandingPage() {
             delay={80}
             icon={<svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>}
             title="Real-time balances"
-            description="See exactly who owes whom at a glance. ChillBill calculates the simplest way to settle up so nobody overpays."
+            description="See exactly who owes whom at a glance. Halvio calculates the simplest way to settle up so nobody overpays."
           />
           <FeatureCard
             delay={160}
@@ -157,7 +157,7 @@ export default function LandingPage() {
             delay={240}
             icon={<svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>}
             title="No account needed"
-            description="Friends not on ChillBill yet? Add them as offline members. They still show up in splits and balances — no signup required."
+            description="Friends not on Halvio yet? Add them as offline members. They still show up in splits and balances — no signup required."
           />
         </div>
       </section>
@@ -180,7 +180,7 @@ export default function LandingPage() {
             <StepItem
               number="3"
               title="Settle up"
-              description="ChillBill shows the optimal way to settle. Mark payments as done when money changes hands."
+              description="Halvio shows the optimal way to settle. Mark payments as done when money changes hands."
             />
           </div>
         </div>
@@ -205,7 +205,7 @@ export default function LandingPage() {
             <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             </div>
-            ChillBill
+            Halvio
           </div>
           <div className="text-xs text-neutral-400 dark:text-neutral-600">
             Built for friends who share.
