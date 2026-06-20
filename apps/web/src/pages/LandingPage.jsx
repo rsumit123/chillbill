@@ -68,17 +68,12 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-4 pt-16 pb-20 sm:pt-24 sm:pb-28">
         <div className="max-w-2xl mx-auto text-center">
-          {/* Pill badge */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 dark:border-blue-800 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-1 mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-xs font-medium text-blue-700 dark:text-blue-300">Free and open source</span>
-          </div>
-
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-neutral-900 dark:text-neutral-100 tracking-tight leading-tight">
-            Split bills,{' '}
+            Halve the bill,{' '}
             <span className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
-              not friendships
+              keep the bond
             </span>
+            .
           </h1>
           <p className="mt-5 text-lg sm:text-xl text-neutral-600 dark:text-neutral-400 max-w-lg mx-auto leading-relaxed">
             Track shared expenses, settle debts, and keep things fair across trips, roommates, and group events.
