@@ -10,6 +10,7 @@ import { convert, getRatesInfo } from '../services/fx.js'
 import ConfirmDialog from '../components/ConfirmDialog.jsx'
 import KebabMenu from '../components/KebabMenu.jsx'
 import { Spinner } from '../components/Spinner.jsx'
+import PaymentNudgeBanner from '../components/PaymentNudgeBanner.jsx'
 
 export default function GroupsPage() {
   const { accessToken, user } = useAuth()
@@ -144,6 +145,7 @@ export default function GroupsPage() {
 
   return (
     <div className="space-y-6">
+      <PaymentNudgeBanner />
       <div>
         <h1 className="text-2xl font-semibold">Your groups</h1>
         <p className="text-neutral-600 dark:text-neutral-400">Create groups to track shared expenses.</p>
