@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +17,7 @@ class SettlementCreate(BaseModel):
     to_member_id: int
     amount: float
     method: str = "manual"
+    via_payment_method: Literal["upi", "paypal", "venmo", "cashapp", "iban", "other", "manual"] | None = None
 
 
 router = APIRouter()
@@ -75,6 +78,7 @@ async def create_settlement(
         currency=group.currency,
         method=payload.method,
         status="success",
+        via_payment_method=payload.via_payment_method,
     )
     db.add(st)
     await db.commit()
@@ -100,6 +104,7 @@ async def list_settlements(group_id: str, current_user=Depends(get_current_user)
             "currency": s.currency,
             "method": s.method,
             "status": s.status,
+            "via_payment_method": s.via_payment_method,
             "created_at": s.created_at.isoformat() if s.created_at else None,
         }
         for s in res.scalars().all()
