@@ -9,7 +9,9 @@ from app.services.llm import parse_with_llm, LLMError
 EXPENSE_PARSE_SCHEMA: dict = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["intent", "confidence"],
+    # Strict JSON schema mode requires every property to be in `required`.
+    # Nullable types allow the LLM to set unused fields to null.
+    "required": ["intent", "confidence", "expense", "settlement", "error"],
     "properties": {
         "intent": {"enum": ["expense", "settlement", "unknown"]},
         "confidence": {"enum": ["high", "low"]},
@@ -104,14 +106,20 @@ Output: {{"intent":"unknown","confidence":"low","expense":null,"settlement":null
 """
 
 
-def _validate(parsed: dict, member_ids: set[int]) -> dict:
-    """Post-LLM validation. Returns the parsed dict if valid; otherwise returns an `unknown` envelope."""
+def _validate(parsed: dict, member_ids: set[int], current_member_id: int) -> dict:
+    """Post-LLM validation. Returns the parsed dict (possibly with mild auto-fixes) if valid;
+    otherwise returns an `unknown` envelope."""
     intent = parsed.get("intent")
     if intent == "expense":
-        e = parsed.get("expense") or {}
-        if e.get("paid_by_member_id") not in member_ids:
+        e = parsed.get("expense")
+        if not e:
             return {"intent": "unknown", "confidence": "low", "expense": None, "settlement": None,
-                    "error": "payer is not a member of this group"}
+                    "error": "intent was expense but no expense object provided"}
+        # The prompt instructs the LLM to default the payer to the current user when unclear.
+        # If the model returned an id that isn't in this group, apply that fallback rather
+        # than dropping the parse.
+        if e.get("paid_by_member_id") not in member_ids:
+            e["paid_by_member_id"] = current_member_id
         for s in e.get("splits", []):
             if s.get("member_id") not in member_ids:
                 return {"intent": "unknown", "confidence": "low", "expense": None, "settlement": None,
@@ -122,7 +130,10 @@ def _validate(parsed: dict, member_ids: set[int]) -> dict:
             return {"intent": "unknown", "confidence": "low", "expense": None, "settlement": None,
                     "error": "split amounts do not sum to total"}
     elif intent == "settlement":
-        s = parsed.get("settlement") or {}
+        s = parsed.get("settlement")
+        if not s:
+            return {"intent": "unknown", "confidence": "low", "expense": None, "settlement": None,
+                    "error": "intent was settlement but no settlement object provided"}
         if s.get("from_member_id") not in member_ids or s.get("to_member_id") not in member_ids:
             return {"intent": "unknown", "confidence": "low", "expense": None, "settlement": None,
                     "error": "settlement refers to unknown member"}
@@ -154,8 +165,4 @@ async def parse_expense_text(
         return {"intent": "unknown", "confidence": "low", "error": str(e)}
 
     member_ids = {m["id"] for m in members}
-    result = _validate(parsed, member_ids)
-    if result.get("intent") == "unknown" and parsed.get("intent") != "unknown":
-        import sys
-        print(f"[expense_parser] validation rejected: parsed={parsed!r} member_ids={member_ids!r} error={result.get('error')!r}", file=sys.stderr, flush=True)
-    return result
+    return _validate(parsed, member_ids, current_member_id)
