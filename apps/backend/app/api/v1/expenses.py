@@ -8,7 +8,8 @@ import os
 from app.core.deps import get_current_user, get_db
 from app.core.config import settings
 from app.db.models.expense import Expense, ExpenseSplit
-from app.db.models.group import GroupMember
+from app.db.models.group import Group, GroupMember
+from app.services.expense_parser import parse_expense_text
 
 
 class ExpenseSplitIn(BaseModel):
@@ -172,3 +173,54 @@ async def upload_receipt(file: UploadFile = File(...)):
     with open(dest_path, "wb") as f:
         f.write(await file.read())
     return {"receipt_path": dest_path}
+
+
+async def _require_membership(db: AsyncSession, group_id: str, user_id: str) -> Group:
+    group = await db.get(Group, group_id)
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    res = await db.execute(
+        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.user_id == user_id)
+    )
+    if not res.scalars().first():
+        raise HTTPException(status_code=403, detail="Not a group member")
+    return group
+
+
+class ParseExpenseRequest(BaseModel):
+    text: str
+
+
+@router.post("/{group_id}/expenses/parse", response_model=dict)
+async def parse_expense(
+    group_id: str,
+    payload: ParseExpenseRequest,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    group = await _require_membership(db, group_id, current_user.id)
+
+    # Build the members context for the parser.
+    res = await db.execute(
+        select(GroupMember).where(GroupMember.group_id == group_id)
+    )
+    raw_members = res.scalars().all()
+    members = [
+        {"id": m.id, "name": m.name or "", "is_ghost": m.is_ghost}
+        for m in raw_members
+    ]
+
+    # Find the current user's member id within this group.
+    current_member = next(
+        (m for m in raw_members if m.user_id == current_user.id), None
+    )
+    if not current_member:
+        raise HTTPException(status_code=403, detail="Not a group member")
+
+    parsed = await parse_expense_text(
+        text=payload.text,
+        members=members,
+        currency=group.currency,
+        current_member_id=current_member.id,
+    )
+    return parsed
