@@ -10,6 +10,7 @@ from app.db.models.group import Group, GroupMember
 from app.db.models.settlement import Settlement
 from app.services.balances import compute_group_balances
 from app.services.settlements import settlement_suggestions
+from app.api.v1._helpers import require_membership
 
 
 class SettlementCreate(BaseModel):
@@ -23,21 +24,9 @@ class SettlementCreate(BaseModel):
 router = APIRouter()
 
 
-async def _require_membership(db: AsyncSession, group_id: str, user_id: str) -> Group:
-    group = await db.get(Group, group_id)
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    res = await db.execute(
-        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.user_id == user_id)
-    )
-    if not res.scalars().first():
-        raise HTTPException(status_code=403, detail="Not a group member")
-    return group
-
-
 @router.get("/{group_id}/balances", response_model=dict)
 async def get_balances(group_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _require_membership(db, group_id, current_user.id)
+    await require_membership(db, group_id, current_user.id)
     balances = await compute_group_balances(db, group_id)
     # JSON object keys must be strings.
     return {"group_id": group_id, "balances": {str(k): v for k, v in balances.items()}}
@@ -45,7 +34,7 @@ async def get_balances(group_id: str, current_user=Depends(get_current_user), db
 
 @router.get("/{group_id}/settlements/suggestions", response_model=list[dict])
 async def get_suggestions(group_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    await _require_membership(db, group_id, current_user.id)
+    await require_membership(db, group_id, current_user.id)
     balances = await compute_group_balances(db, group_id)
     return settlement_suggestions(balances)
 
@@ -57,7 +46,7 @@ async def create_settlement(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    group = await _require_membership(db, group_id, current_user.id)
+    group = await require_membership(db, group_id, current_user.id)
 
     if payload.amount <= 0:
         raise HTTPException(status_code=400, detail="Amount must be greater than zero")
@@ -89,7 +78,7 @@ async def create_settlement(
 @router.get("/{group_id}/settlements", response_model=list[dict])
 async def list_settlements(group_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     """Recorded settlements in this group, newest first."""
-    await _require_membership(db, group_id, current_user.id)
+    await require_membership(db, group_id, current_user.id)
     res = await db.execute(
         select(Settlement)
         .where(Settlement.group_id == group_id)

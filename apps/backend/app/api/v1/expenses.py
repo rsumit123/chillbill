@@ -8,8 +8,9 @@ import os
 from app.core.deps import get_current_user, get_db
 from app.core.config import settings
 from app.db.models.expense import Expense, ExpenseSplit
-from app.db.models.group import Group, GroupMember
+from app.db.models.group import GroupMember
 from app.services.expense_parser import parse_expense_text
+from app.api.v1._helpers import require_membership
 
 
 class ExpenseSplitIn(BaseModel):
@@ -175,18 +176,6 @@ async def upload_receipt(file: UploadFile = File(...)):
     return {"receipt_path": dest_path}
 
 
-async def _require_membership(db: AsyncSession, group_id: str, user_id: str) -> Group:
-    group = await db.get(Group, group_id)
-    if not group:
-        raise HTTPException(status_code=404, detail="Group not found")
-    res = await db.execute(
-        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.user_id == user_id)
-    )
-    if not res.scalars().first():
-        raise HTTPException(status_code=403, detail="Not a group member")
-    return group
-
-
 class ParseExpenseRequest(BaseModel):
     text: str
 
@@ -198,7 +187,7 @@ async def parse_expense(
     current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    group = await _require_membership(db, group_id, current_user.id)
+    group = await require_membership(db, group_id, current_user.id)
 
     # Build the members context for the parser.
     res = await db.execute(
