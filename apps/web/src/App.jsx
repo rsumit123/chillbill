@@ -4,6 +4,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage.jsx'
 import LandingPage from './pages/LandingPage.jsx'
 import GroupsPage from './pages/GroupsPage.jsx'
 import GroupDetailPage from './pages/GroupDetailPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
 import Layout from './components/Layout.jsx'
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import { ThemeProvider } from './contexts/ThemeContext.jsx'
@@ -41,6 +42,7 @@ export default function App() {
           >
             <Route index element={<GroupsPage />} />
             <Route path="groups/:groupId" element={<GroupDetailPage />} />
+            <Route path="settings" element={<SettingsPage />} />
           </Route>
           </Routes>
         </ToastProvider>
