@@ -64,6 +64,7 @@ async def get_group(group_id: str, current_user=Depends(get_current_user), db: A
             "email": (u.email if u is not None else None),
             "avatar_url": (u.avatar_url if u is not None else None),
             "is_ghost": gm.is_ghost,
+            "payment_methods": (u.payment_methods if u is not None else []) or [],
         }
         for gm, u in rows
     ]

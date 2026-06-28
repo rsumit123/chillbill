@@ -105,3 +105,32 @@ class TestPaymentMethods:
             json={"payment_methods": []},
         )
         assert resp.status_code in (401, 403)
+
+    async def test_group_member_listing_includes_payment_methods(
+        self, client, auth_token, test_group_with_members
+    ):
+        group, members = test_group_with_members
+        # Set methods on the test user
+        await client.put(
+            "/api/v1/me/payment-methods",
+            headers={"Authorization": f"Bearer {auth_token}"},
+            json={"payment_methods": [{"type": "upi", "value": "me@okicici"}]},
+        )
+        # Fetch the group
+        resp = await client.get(
+            f"/api/v1/groups/{group.id}",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        # Find the registered member whose user_id matches the auth user
+        body = resp.json()
+        members_with_user = [m for m in body["members"] if m.get("user_id")]
+        assert len(members_with_user) >= 1
+        # At least one of them should have the UPI we set
+        upis = [
+            pm["value"]
+            for m in members_with_user
+            for pm in (m.get("payment_methods") or [])
+            if pm.get("type") == "upi"
+        ]
+        assert "me@okicici" in upis
