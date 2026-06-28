@@ -85,6 +85,9 @@ export function AuthProvider({ children }) {
     },
     accessToken: tokens?.access_token || null,
     refreshToken: refreshAccessToken,
+    updatePaymentMethods: (methods) => {
+      setUser(prev => prev ? { ...prev, payment_methods: methods } : prev)
+    },
   }), [user, tokens, sessionExpired, refreshAccessToken])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
