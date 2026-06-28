@@ -154,4 +154,8 @@ async def parse_expense_text(
         return {"intent": "unknown", "confidence": "low", "error": str(e)}
 
     member_ids = {m["id"] for m in members}
-    return _validate(parsed, member_ids)
+    result = _validate(parsed, member_ids)
+    if result.get("intent") == "unknown" and parsed.get("intent") != "unknown":
+        import sys
+        print(f"[expense_parser] validation rejected: parsed={parsed!r} member_ids={member_ids!r} error={result.get('error')!r}", file=sys.stderr, flush=True)
+    return result
