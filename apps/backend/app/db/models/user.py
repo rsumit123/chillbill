@@ -1,7 +1,7 @@
 from datetime import datetime
 import uuid
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, DateTime
+from sqlalchemy import String, DateTime, JSON
 
 from app.db.session import Base
 
@@ -16,3 +16,6 @@ class User(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     auth_provider: Mapped[str] = mapped_column(String(20), nullable=False, default="email", server_default="email")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    payment_methods: Mapped[list[dict]] = mapped_column(
+        JSON, nullable=False, default=list, server_default="[]"
+    )

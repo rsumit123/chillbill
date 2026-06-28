@@ -23,5 +23,6 @@ class Settlement(Base):
     status: Mapped[str] = mapped_column(
         Enum("pending", "success", "failed", name="settlement_status"), nullable=False, default="pending"
     )
+    via_payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
     txn_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
