@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, get_db
 from app.db.models.user import User
+from app.services.people_balances import compute_people_balances
 
 UPI_RE = re.compile(r"^[\w.\-+]+@[\w.\-]+$")
 
@@ -97,3 +98,17 @@ async def update_payment_methods(
     await db.commit()
     await db.refresh(current_user)
     return {"payment_methods": current_user.payment_methods}
+
+
+@router.get("/me/balances/people", response_model=dict)
+async def my_people_balances(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated per-person balances across all the user's groups (read-only).
+
+    Excludes ghost members (no cross-group identity) and the current user.
+    See spec at docs/superpowers/specs/2026-06-29-cross-group-owe-map-design.md.
+    """
+    people = await compute_people_balances(db, current_user.id)
+    return {"people": people}
