@@ -324,7 +324,7 @@ export default function GroupDetailPage() {
 
       {/* Modals */}
       <ConfirmDialog open={confirmOpen} onClose={()=>setConfirmOpen(false)} title="Delete selected expenses?" message="This cannot be undone." confirmText="Delete" onConfirm={deleteSelected} />
-      <EditExpenseModal open={editOpen} onClose={()=>setEditOpen(false)} expenseId={editId} accessToken={accessToken} currency={group.currency} onUpdated={refreshLists} />
+      <EditExpenseModal open={editOpen} onClose={()=>setEditOpen(false)} expenseId={editId} group={group} accessToken={accessToken} onUpdated={refreshLists} />
       <AddExpenseModal open={addExpenseOpen} onClose={()=>setAddExpenseOpen(false)} group={group} user={user} onSubmit={addExpense} submitting={submitting} onSwitchToSettlement={(s) => { setSettleOpen(true) }} />
       <AddMemberModal open={addMemberOpen} onClose={()=>setAddMemberOpen(false)} onAdd={addMembers} />
       <RemoveMemberModal open={removeMemberOpen} onClose={()=>setRemoveMemberOpen(false)} members={group.members} currentUserId={user?.id} onRemove={removeMember} />
