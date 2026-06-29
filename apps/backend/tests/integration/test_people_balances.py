@@ -233,3 +233,102 @@ class TestPeopleBalancesAuth:
     async def test_requires_auth(self, client: AsyncClient):
         resp = await client.get("/api/v1/me/balances/people")
         assert resp.status_code in (401, 403)
+
+
+class TestPeopleBalancesCorrectness:
+    """Pairwise-debt correctness: balances must come from settlement_suggestions, not from
+    naively flipping the group-level balance of each other member."""
+
+    async def test_three_person_group_current_user_uninvolved(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        # You are in the group but did not participate in this expense.
+        # Aarav pays 100, split 50/50 between Aarav and Priya.
+        # Truth: Priya owes Aarav 50; you owe nothing; no one owes you.
+        aarav = await _add_user(db_session, "aarav@example.com", "Aarav")
+        priya = await _add_user(db_session, "priya@example.com", "Priya")
+        g = await _add_group(db_session, "Group", test_user)
+        me = await _add_member(db_session, g, test_user)
+        a = await _add_member(db_session, g, aarav)
+        p = await _add_member(db_session, g, priya)
+        # Note: `me` is intentionally NOT in the splits — current user uninvolved.
+        await _add_expense(db_session, g, payer=a, total=100.0, splits=[(a, 50.0), (p, 50.0)])
+
+        resp = await client.get(
+            "/api/v1/me/balances/people",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        # Current user must not show ANY balances — they were not part of the expense.
+        assert resp.json() == {"people": []}
+
+    async def test_three_person_group_current_user_partially_involved(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        # Aarav pays 90, split equally 30/30/30 among Aarav, Priya, and You.
+        # Truth: You owe Aarav 30. Priya owes Aarav 30.
+        # Specifically: You do NOT owe Priya; Priya does NOT owe You.
+        aarav = await _add_user(db_session, "aarav@example.com", "Aarav")
+        priya = await _add_user(db_session, "priya@example.com", "Priya")
+        g = await _add_group(db_session, "Group", test_user)
+        me = await _add_member(db_session, g, test_user)
+        a = await _add_member(db_session, g, aarav)
+        p = await _add_member(db_session, g, priya)
+        await _add_expense(db_session, g, payer=a, total=90.0, splits=[(a, 30.0), (p, 30.0), (me, 30.0)])
+
+        resp = await client.get(
+            "/api/v1/me/balances/people",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        data = resp.json()
+        # Only Aarav should appear — you don't owe Priya, Priya doesn't owe you.
+        assert len(data["people"]) == 1
+        assert data["people"][0]["name"] == "Aarav"
+        assert data["people"][0]["balances"] == {"INR": -30.0}
+
+    async def test_three_person_group_you_paid_split_among_others(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        # You pay 100, split 50/50 between Aarav and Priya. You took none.
+        # Truth: Aarav owes you 50. Priya owes you 50.
+        aarav = await _add_user(db_session, "aarav@example.com", "Aarav")
+        priya = await _add_user(db_session, "priya@example.com", "Priya")
+        g = await _add_group(db_session, "Group", test_user)
+        me = await _add_member(db_session, g, test_user)
+        a = await _add_member(db_session, g, aarav)
+        p = await _add_member(db_session, g, priya)
+        await _add_expense(db_session, g, payer=me, total=100.0, splits=[(a, 50.0), (p, 50.0)])
+
+        resp = await client.get(
+            "/api/v1/me/balances/people",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        people = resp.json()["people"]
+        # Both Aarav and Priya should owe you 50.
+        assert len(people) == 2
+        names = {p["name"]: p["balances"] for p in people}
+        assert names == {"Aarav": {"INR": 50.0}, "Priya": {"INR": 50.0}}
+
+    async def test_chain_of_debt_through_third_party(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        # 4-person group. Two separate transactions you weren't part of:
+        #   Aarav pays 60 split 30/30 between Aarav and Priya — Priya owes Aarav 30
+        #   Sam pays 40 split 20/20 between Sam and Aarav — Aarav owes Sam 20
+        # You: in the group, no transactions. Should appear with NO balances.
+        aarav = await _add_user(db_session, "aarav@example.com", "Aarav")
+        priya = await _add_user(db_session, "priya@example.com", "Priya")
+        sam = await _add_user(db_session, "sam@example.com", "Sam")
+        g = await _add_group(db_session, "Group", test_user)
+        me = await _add_member(db_session, g, test_user)
+        a = await _add_member(db_session, g, aarav)
+        p = await _add_member(db_session, g, priya)
+        s = await _add_member(db_session, g, sam)
+        await _add_expense(db_session, g, payer=a, total=60.0, splits=[(a, 30.0), (p, 30.0)])
+        await _add_expense(db_session, g, payer=s, total=40.0, splits=[(s, 20.0), (a, 20.0)])
+
+        resp = await client.get(
+            "/api/v1/me/balances/people",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.json() == {"people": []}
