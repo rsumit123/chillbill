@@ -72,8 +72,24 @@ export default function Layout() {
               Groups
             </NavLink>
             
+            <NavLink
+              to="/dashboard/people"
+              className={({isActive}) => `
+                flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all
+                ${isActive
+                  ? 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300'
+                  : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800'
+                }
+              `}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              People
+            </NavLink>
+
             {/* Theme Toggle Button */}
-            <button 
+            <button
               onClick={toggle}
               className="p-2 rounded-lg text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -178,6 +194,17 @@ export default function Layout() {
                       <span>Your Groups</span>
                     </NavLink>
                   </div>
+
+                    <NavLink
+                      to="/dashboard/people"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <svg className="w-5 h-5 text-neutral-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      <span>People</span>
+                    </NavLink>
 
                     <NavLink
                       to="/dashboard/settings"
