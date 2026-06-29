@@ -96,17 +96,27 @@ export default function GroupsPage() {
     try {
       const g = await api.post('/groups/', { name, currency, icon }, { token: accessToken })
       setGroups(prev => [{ ...g, _members: [] }, ...prev])
-      if (emails?.length) {
-        // Detect if each entry is an email or a name
-        const memberPromises = emails.map(entry => {
-          const isEmail = /.+@.+\..+/.test(entry)
-          const payload = isEmail ? { email: entry } : { name: entry }
-          return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
-        })
-        await Promise.allSettled(memberPromises)
-        push('Group created with members successfully', 'success')
+      if (!emails?.length) {
+        push('Group created. You can add members later.', 'success')
+        return
+      }
+      // Detect if each entry is an email or a name.
+      const requests = emails.map(entry => {
+        const isEmail = /.+@.+\..+/.test(entry)
+        const payload = isEmail ? { email: entry } : { name: entry }
+        return api.post(`/groups/${g.id}/members`, payload, { token: accessToken })
+          .then(() => ({ entry, ok: true }))
+          .catch(err => ({ entry, ok: false, err }))
+      })
+      const results = await Promise.all(requests)
+      const failed = results.filter(r => !r.ok)
+      if (failed.length === 0) {
+        push(`Group created with ${results.length} member${results.length === 1 ? '' : 's'}.`, 'success')
       } else {
-        push('Group created successfully. You can add members later.', 'success')
+        const okCount = results.length - failed.length
+        const failedNames = failed.map(f => f.entry).join(', ')
+        const verb = okCount > 0 ? 'Group created' : 'Group created, but no members added'
+        push(`${verb}. Couldn't add: ${failedNames}.`, 'error')
       }
     } catch (err) {
       push(err.message || 'Failed to create group', 'error')

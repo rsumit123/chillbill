@@ -94,12 +94,29 @@ export default function GroupDetailPage() {
   }
 
   async function addMembers(tokens) {
-    try {
-      await Promise.allSettled(tokens.map(t => /.+@.+\..+/.test(t) ? api.post(`/groups/${groupId}/members`, { email: t }, { token: accessToken }) : api.post(`/groups/${groupId}/members`, { name: t }, { token: accessToken })))
-      await refreshLists()
-      push(`${tokens.length} member(s) added successfully`, 'success')
-    } catch (err) {
-      push(err.message || 'Failed to add members', 'error')
+    if (!tokens?.length) return
+    const requests = tokens.map(t => {
+      const isEmail = /.+@.+\..+/.test(t)
+      const payload = isEmail ? { email: t } : { name: t }
+      return api.post(`/groups/${groupId}/members`, payload, { token: accessToken })
+        .then(() => ({ t, ok: true }))
+        .catch(err => ({ t, ok: false, err }))
+    })
+    const results = await Promise.all(requests)
+    await refreshLists()
+    const failed = results.filter(r => !r.ok)
+    if (failed.length === 0) {
+      push(`${results.length} member${results.length === 1 ? '' : 's'} added.`, 'success')
+    } else {
+      const okCount = results.length - failed.length
+      const failedNames = failed.map(f => f.t).join(', ')
+      if (okCount > 0) {
+        push(`Added ${okCount}. Couldn't add: ${failedNames}.`, 'error')
+      } else {
+        // Use the first error's message if available — Pydantic 422s have nested detail; api.js typically surfaces "detail" as message.
+        const firstErr = failed[0]?.err?.message
+        push(firstErr ? `Couldn't add members: ${firstErr}` : `Couldn't add: ${failedNames}.`, 'error')
+      }
     }
   }
 
