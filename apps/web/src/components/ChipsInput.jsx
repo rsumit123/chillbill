@@ -7,10 +7,15 @@ function isValidEmail(v) {
 export default function ChipsInput({ value = [], onChange, placeholder }) {
   const [input, setInput] = useState('')
 
-  function commit(tokens) {
-    const emails = tokens.map(t => t.trim()).filter(Boolean)
+  function commit(rawTokens) {
+    // Split each token on commas/whitespace so callers (blur, paste, keydown) all behave consistently.
+    const tokens = rawTokens
+      .flatMap(t => String(t).split(/[\s,]+/))
+      .map(t => t.trim())
+      .filter(Boolean)
+    if (tokens.length === 0) return
     const next = [...value]
-    emails.forEach(e => { if (!next.includes(e)) next.push(e) })
+    tokens.forEach(e => { if (!next.includes(e)) next.push(e) })
     onChange?.(next)
   }
 
