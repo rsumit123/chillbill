@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Modal from './Modal.jsx'
 import { ButtonSpinner } from './Spinner.jsx'
 import { Avatar } from './Avatar.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { api } from '../services/api.js'
+import { useToast } from './Toast.jsx'
+import { pickReceiptFile, scanReceipt, captureReceipt } from '../services/receipt.js'
+import ReceiptSplitModal from './ReceiptSplitModal.jsx'
+import { Capacitor } from '@capacitor/core'
 
 function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd']
@@ -13,6 +17,10 @@ function ordinal(n) {
 
 export default function AddExpenseModal({ open, onClose, group, user, onSubmit, submitting, onSwitchToSettlement }) {
   const { accessToken } = useAuth()
+  const { push } = useToast()
+  const [scanning, setScanning] = useState(false)
+  const [scanResult, setScanResult] = useState(null)
+  const fileInputRef = useRef(null)
   const [note, setNote] = useState('')
   const [amount, setAmount] = useState('')
   const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -205,6 +213,54 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
     <Modal open={open} onClose={handleClose}>
       <div className="p-6">
         <h2 className="text-xl font-semibold mb-4">Add Expense</h2>
+
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={async () => {
+              if (Capacitor.isNativePlatform()) {
+                try {
+                  setScanning(true)
+                  const blob = await captureReceipt()
+                  const parsed = await scanReceipt(group.id, blob, accessToken)
+                  setScanResult(parsed)
+                } catch (e) {
+                  push(e?.message || 'Scan failed', 'error')
+                } finally { setScanning(false) }
+              } else {
+                fileInputRef.current?.click()
+              }
+            }}
+            disabled={scanning}
+            className="text-sm px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-200 disabled:opacity-50"
+          >
+            {scanning ? 'Scanning…' : '📷 Scan receipt'}
+          </button>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={async e => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              try {
+                setScanning(true)
+                const blob = await pickReceiptFile(f)
+                const parsed = await scanReceipt(group.id, blob, accessToken)
+                setScanResult(parsed)
+              } catch (err) {
+                push(err?.message || 'Scan failed', 'error')
+              } finally {
+                setScanning(false)
+                e.target.value = ''
+              }
+            }}
+          />
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Natural Language Section */}
           <div className="space-y-3 mb-5">
@@ -385,6 +441,21 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
           </div>
         </form>
       </div>
+
+      {scanResult && (
+        <ReceiptSplitModal
+          open={true}
+          parsed={scanResult}
+          group={group}
+          accessToken={accessToken}
+          onClose={() => setScanResult(null)}
+          onCreated={() => {
+            onSubmit?.()
+            setScanResult(null)
+            onClose?.()
+          }}
+        />
+      )}
     </Modal>
   )
 }
