@@ -447,10 +447,9 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
           open={true}
           parsed={scanResult}
           group={group}
-          accessToken={accessToken}
+          onSubmit={onSubmit}
           onClose={() => setScanResult(null)}
           onCreated={() => {
-            onSubmit?.()
             setScanResult(null)
             onClose?.()
           }}

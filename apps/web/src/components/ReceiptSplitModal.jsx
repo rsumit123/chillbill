@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import Modal from './Modal.jsx'
-import { api } from '../services/api.js'
 import { useToast } from './Toast.jsx'
 
 function fmt(amount, currency) {
@@ -18,7 +17,7 @@ function initials(name) {
   return name.split(/\s+/).slice(0, 2).map(s => s[0]).join('').toUpperCase()
 }
 
-export default function ReceiptSplitModal({ open, onClose, parsed, group, accessToken, onCreated }) {
+export default function ReceiptSplitModal({ open, onClose, parsed, group, onSubmit, onCreated }) {
   const { push } = useToast()
   const [items, setItems] = useState(() =>
     (parsed?.items || []).map((it, i) => ({
@@ -109,13 +108,13 @@ export default function ReceiptSplitModal({ open, onClose, parsed, group, access
         share_amount: Number(amt),
         share_percentage: null,
       }))
-      await api.post(`/groups/${group.id}/expenses`, {
-        total_amount: total,
-        currency,
+      await onSubmit({
         note: `${merchant} (scanned)`,
-        paid_by_member_id: paidByMemberId,
+        amount: total,
+        paidByMemberId,
         splits,
-      }, { token: accessToken })
+        mode: 'amount',
+      })
       push('Expense added', 'success')
       onCreated?.()
       onClose?.()
