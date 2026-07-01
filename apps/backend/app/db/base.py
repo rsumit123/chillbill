@@ -5,3 +5,4 @@ from app.db.models.group import Group, GroupMember  # noqa: F401
 from app.db.models.expense import Expense, ExpenseSplit  # noqa: F401
 from app.db.models.settlement import Settlement  # noqa: F401
 from app.db.models.activity import Activity  # noqa: F401
+from app.db.models.recurring_rule import RecurringRule  # noqa: F401

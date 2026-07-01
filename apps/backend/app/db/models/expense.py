@@ -21,6 +21,9 @@ class Expense(Base):
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, nullable=False)
+    recurring_rule_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recurring_rules.id", ondelete="SET NULL"), nullable=True
+    )
 
 
 class ExpenseSplit(Base):

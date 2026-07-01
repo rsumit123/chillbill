@@ -18,6 +18,7 @@ from app.db.models.group import Group, GroupMember
 from app.db.models.expense import Expense, ExpenseSplit
 from app.db.models.activity import Activity
 from app.db.models.settlement import Settlement
+from app.db.models.recurring_rule import RecurringRule
 from app.core.security import hash_password
 
 
@@ -46,7 +47,7 @@ def event_loop():
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session with fresh schema for each test."""
     # Import all models to ensure they're registered with Base.metadata
-    _ = (User, Group, GroupMember, Expense, ExpenseSplit, Activity, Settlement)
+    _ = (User, Group, GroupMember, Expense, ExpenseSplit, Activity, Settlement, RecurringRule)
     
     # Create engine for this test
     engine = create_async_engine(
