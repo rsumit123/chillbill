@@ -5,10 +5,18 @@ import { Avatar } from './Avatar.jsx'
 import { useAuth } from '../contexts/AuthContext.jsx'
 import { api } from '../services/api.js'
 
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd']
+  const v = n % 100
+  return n + (s[(v - 20) % 10] || s[v] || s[0])
+}
+
 export default function AddExpenseModal({ open, onClose, group, user, onSubmit, submitting, onSwitchToSettlement }) {
   const { accessToken } = useAuth()
   const [note, setNote] = useState('')
   const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [repeat, setRepeat] = useState(false)
   const [paidByMemberId, setPaidByMemberId] = useState(null)
   const [splits, setSplits] = useState([])
   const [selectedMembers, setSelectedMembers] = useState(new Set())
@@ -132,7 +140,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
     setSplits(prev => prev.map(s => s.member_id === memberId ? { ...s, share_amount: val } : s))
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     if (!total || total <= 0) {
       setAmountError('Enter an amount greater than 0')
@@ -143,13 +151,26 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
       return
     }
     setAmountError('')
-    
+
     // Only send splits for selected members
     const filteredSplits = mode === 'percent'
       ? splits.filter(s => selectedMembers.has(s.member_id))
       : splits.filter(s => selectedMembers.has(s.member_id) && s.share_amount > 0)
-    
-    onSubmit({ note, amount, paidByMemberId, splits: filteredSplits, mode })
+
+    const dayOfMonth = new Date(date).getDate() || new Date().getDate()
+    const primary = onSubmit({ note, amount, paidByMemberId, splits: filteredSplits, mode })
+    const secondary = repeat
+      ? api.post(`/groups/${group.id}/recurring-rules`, {
+          paid_by_member_id: paidByMemberId,
+          total_amount: total,
+          currency: group.currency,
+          note: note || null,
+          splits: filteredSplits.map(s => ({ member_id: s.member_id, share_amount: Number(s.share_amount || 0), share_percentage: null })),
+          day_of_month: dayOfMonth,
+          start_from_next_month: true,
+        }, { token: accessToken })
+      : Promise.resolve(null)
+    await Promise.all([primary, secondary])
     // Reset form
     setNote('')
     setAmount('')
@@ -160,6 +181,7 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
     setNote('')
     setAmount('')
     setAmountError('')
+    setRepeat(false)
     setNlText('')
     setNlState('idle')
     setNlError('')
@@ -334,6 +356,21 @@ export default function AddExpenseModal({ open, onClose, group, user, onSubmit, 
               <div className="text-xs text-neutral-500 dark:text-neutral-400 mt-2">Percentages should sum to 100</div>
             )}
           </div>
+
+          <label className="flex items-start gap-2 cursor-pointer mt-4">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={repeat}
+              onChange={e => setRepeat(e.target.checked)}
+            />
+            <div>
+              <div className="text-sm font-medium text-neutral-900 dark:text-neutral-100">Repeat monthly</div>
+              <div className="text-xs text-neutral-500 dark:text-neutral-400">
+                Also add this on the {ordinal(new Date(date || undefined).getDate())} of every month automatically.
+              </div>
+            </div>
+          </label>
 
           <div className="flex items-center justify-between gap-3 pt-2">
             <button type="button" className="text-neutral-600 dark:text-neutral-300 px-4 py-2" onClick={handleClose}>Cancel</button>
