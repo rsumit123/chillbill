@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from . import auth, users, groups, expenses, settlements, activity, uploads
+from . import auth, users, groups, expenses, settlements, activity, uploads, recurring_rules
 
 router = APIRouter()
 
@@ -11,3 +11,4 @@ router.include_router(expenses.router, prefix="/groups", tags=["expenses"])  # n
 router.include_router(settlements.router, prefix="/groups", tags=["settlements"])  # nested
 router.include_router(activity.router, prefix="/groups", tags=["activity"])  # nested
 router.include_router(uploads.router, prefix="/uploads", tags=["uploads"])  # receipts
+router.include_router(recurring_rules.router)  # prefix="/groups" already set on router

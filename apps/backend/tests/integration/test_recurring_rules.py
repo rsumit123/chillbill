@@ -186,3 +186,70 @@ class TestMaterializeDueRules:
         await db_session.refresh(rule)
         # Next run advances to March 31.
         assert rule.next_run_at == date(2026, 3, 31)
+
+
+class TestRecurringRulesEndpointsAuth:
+    async def test_list_requires_auth(self, client: AsyncClient):
+        resp = await client.get("/api/v1/groups/somegroup/recurring-rules")
+        assert resp.status_code in (401, 403)
+
+    async def test_create_requires_auth(self, client: AsyncClient):
+        resp = await client.post("/api/v1/groups/somegroup/recurring-rules", json={})
+        assert resp.status_code in (401, 403)
+
+
+class TestRecurringRulesEndpoints:
+    async def test_create_lists_pause_resume_delete_roundtrip(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        friend = await _add_user(db_session, "friend@example.com", "Friend")
+        g = await _add_group(db_session, test_user)
+        me = await _add_member(db_session, g, test_user)
+        f = await _add_member(db_session, g, friend)
+
+        payload = {
+            "paid_by_member_id": me.id,
+            "total_amount": 15000,
+            "currency": "INR",
+            "note": "Rent",
+            "splits": [
+                {"member_id": me.id, "share_amount": 7500, "share_percentage": None},
+                {"member_id": f.id, "share_amount": 7500, "share_percentage": None},
+            ],
+            "day_of_month": 1,
+            "start_from_next_month": True,
+        }
+        resp = await client.post(
+            f"/api/v1/groups/{g.id}/recurring-rules",
+            json=payload,
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 201, resp.text
+        rid = resp.json()["id"]
+
+        resp = await client.get(
+            f"/api/v1/groups/{g.id}/recurring-rules",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        assert len(resp.json()["rules"]) == 1
+
+        resp = await client.post(
+            f"/api/v1/groups/{g.id}/recurring-rules/{rid}/pause",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is False
+
+        resp = await client.post(
+            f"/api/v1/groups/{g.id}/recurring-rules/{rid}/resume",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["is_active"] is True
+
+        resp = await client.delete(
+            f"/api/v1/groups/{g.id}/recurring-rules/{rid}",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 204
