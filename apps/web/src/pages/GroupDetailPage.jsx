@@ -11,6 +11,7 @@ import AddMemberModal from '../components/AddMemberModal.jsx'
 import RemoveMemberModal from '../components/RemoveMemberModal.jsx'
 import AddExpenseModal from '../components/AddExpenseModal.jsx'
 import SettleUpModal from '../components/SettleUpModal.jsx'
+import RecurringSection from '../components/RecurringSection.jsx'
 import { Spinner, ButtonSpinner } from '../components/Spinner.jsx'
 import { useToast } from '../components/Toast.jsx'
 
@@ -228,6 +229,15 @@ export default function GroupDetailPage() {
         </div>
       )}
 
+      {group && (
+        <RecurringSection
+          groupId={groupId}
+          currency={group.currency}
+          accessToken={accessToken}
+          onRefresh={refreshLists}
+        />
+      )}
+
       {/* Expenses Section */}
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -266,7 +276,10 @@ export default function GroupDetailPage() {
                       className="w-4 h-4 rounded border-neutral-300 dark:border-neutral-600"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-neutral-900 dark:text-neutral-100">{e.note || 'Expense'}</div>
+                      <div className="font-medium text-neutral-900 dark:text-neutral-100">
+                        {e.recurring_rule_id && <span className="mr-1 text-xs">🔁</span>}
+                        {e.note || 'Expense'}
+                      </div>
                       <div className="text-xs text-neutral-500 dark:text-neutral-400 space-y-0.5">
                         <div className="flex items-center gap-2">
                           <span>{new Date(e.date).toLocaleDateString()}</span>
