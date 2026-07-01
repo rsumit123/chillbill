@@ -11,6 +11,10 @@ from app.db.models.expense import Expense, ExpenseSplit
 from app.db.models.group import GroupMember
 from app.services.expense_parser import parse_expense_text
 from app.api.v1._helpers import require_membership
+from app.services.receipt_parser import (
+    parse_receipt,
+    ReceiptParseError,
+)
 
 
 class ExpenseSplitIn(BaseModel):
@@ -215,3 +219,29 @@ async def parse_expense(
         current_member_id=current_member.id,
     )
     return parsed
+
+
+_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+_ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp"}
+
+
+@router.post("/{group_id}/expenses/scan-receipt", response_model=dict)
+async def scan_receipt(
+    group_id: str,
+    file: UploadFile = File(...),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    group = await require_membership(db, group_id, current_user.id)
+
+    if file.content_type not in _ALLOWED_MIMES:
+        raise HTTPException(status_code=415, detail="Only JPEG, PNG, or WEBP images are accepted")
+
+    contents = await file.read()
+    if len(contents) > _MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 5 MB)")
+
+    try:
+        return await parse_receipt(contents, group_currency=group.currency)
+    except ReceiptParseError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
