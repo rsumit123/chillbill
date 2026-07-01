@@ -54,6 +54,7 @@ async def list_expenses(group_id: str, current_user=Depends(get_current_user), d
             "date": e.date.isoformat(),
             "created_by": e.created_by,
             "participant_member_ids": participant_ids,  # List of member_ids involved
+            "recurring_rule_id": e.recurring_rule_id,
         })
     
     return result
@@ -126,6 +127,7 @@ async def get_expense(expense_id: str, current_user=Depends(get_current_user), d
         "date": expense.date.isoformat(),
         "splits": splits,
         "receipt_path": expense.receipt_path,
+        "recurring_rule_id": expense.recurring_rule_id,
     }
 
 

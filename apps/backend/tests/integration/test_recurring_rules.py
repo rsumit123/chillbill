@@ -253,3 +253,33 @@ class TestRecurringRulesEndpoints:
             headers={"Authorization": f"Bearer {auth_token}"},
         )
         assert resp.status_code == 204
+
+
+class TestExpenseExposesRecurringRuleId:
+    async def test_materialized_expense_has_recurring_rule_id_in_response(
+        self, client: AsyncClient, auth_token: str, db_session: AsyncSession, test_user: User
+    ):
+        friend = await _add_user(db_session, "friend@example.com", "Friend")
+        g = await _add_group(db_session, test_user)
+        me = await _add_member(db_session, g, test_user)
+        f = await _add_member(db_session, g, friend)
+        rule = await _add_rule(
+            db_session, group=g, payer=me, members=[me, f],
+            total=500.0, day_of_month=1,
+            next_run_at=date(2026, 3, 1), created_by=test_user,
+        )
+        await materialize_due_rules(db_session, today=date(2026, 3, 1))
+
+        resp = await client.get(
+            f"/api/v1/groups/{g.id}/expenses",
+            headers={"Authorization": f"Bearer {auth_token}"},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        # The endpoint returns a plain list; guard in case it ever wraps in a dict.
+        if isinstance(body, dict):
+            expenses = body.get("expenses", body)
+        else:
+            expenses = body
+        assert len(expenses) >= 1
+        assert expenses[0]["recurring_rule_id"] == rule.id
