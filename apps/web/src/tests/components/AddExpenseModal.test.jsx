@@ -19,8 +19,17 @@ vi.mock('../../components/Avatar.jsx', () => ({
 vi.mock('../../contexts/AuthContext.jsx', () => ({
   useAuth: () => ({ accessToken: 'tok' }),
 }))
+vi.mock('../../services/receipt.js', () => ({
+  captureReceipt: vi.fn(),
+  pickReceiptFile: vi.fn(),
+  scanReceipt: vi.fn(),
+}))
+vi.mock('@capacitor/core', () => ({
+  Capacitor: { isNativePlatform: () => false },
+}))
 
 import { api } from '../../services/api.js'
+import { pickReceiptFile, scanReceipt } from '../../services/receipt.js'
 
 const GROUP = {
   id: 'g1',
@@ -88,5 +97,48 @@ describe('AddExpenseModal — Repeat monthly', () => {
       expect(rrCall[1].start_from_next_month).toBe(true)
       expect(typeof rrCall[1].day_of_month).toBe('number')
     })
+  })
+})
+
+describe('AddExpenseModal — Scan receipt', () => {
+  beforeEach(() => {
+    vi.mocked(pickReceiptFile).mockReset()
+    vi.mocked(scanReceipt).mockReset()
+  })
+
+  it('renders the 📷 Scan receipt button', async () => {
+    render(
+      <AddExpenseModal
+        open={true}
+        onClose={() => {}}
+        group={GROUP}
+        onSubmit={vi.fn()}
+      />
+    )
+    expect(await screen.findByText(/📷 Scan receipt/)).toBeInTheDocument()
+  })
+
+  it('successful scan opens ReceiptSplitModal (shows the merchant name)', async () => {
+    vi.mocked(pickReceiptFile).mockResolvedValueOnce(new Blob())
+    vi.mocked(scanReceipt).mockResolvedValueOnce({
+      merchant: 'TinyMerchant', currency: 'INR', total: 100, subtotal: 100,
+      tax: 0, tip: 0, service_charge: 0, discount: 0, confidence: 'high',
+      items: [{ name: 'A', quantity: 1, line_total: 100 }],
+    })
+    render(
+      <AddExpenseModal
+        open={true}
+        onClose={() => {}}
+        group={GROUP}
+        onSubmit={vi.fn()}
+      />
+    )
+    const input = document.querySelector('input[type="file"]')
+    Object.defineProperty(input, 'files', {
+      value: [new File([], 'r.jpg', { type: 'image/jpeg' })],
+    })
+    fireEvent.change(input)
+    await waitFor(() => expect(vi.mocked(scanReceipt)).toHaveBeenCalled())
+    await waitFor(() => expect(screen.getByText('TinyMerchant')).toBeInTheDocument())
   })
 })
